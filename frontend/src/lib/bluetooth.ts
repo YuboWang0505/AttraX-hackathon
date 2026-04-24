@@ -1,11 +1,25 @@
 import type { Intensity } from "@attrax/shared";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Hardware team to fill these two constants once the ESP32-S3 firmware ships.
-// If either still contains "TODO-", the app runs in offline mode (no-op writes)
-// so the demo works without hardware.
-const SERVICE_UUID = "TODO-hardware-pending";
-const CHAR_UUID = "TODO-hardware-pending";
+// Hardware protocol — taken verbatim from the engineer's test page
+// (web蓝牙通信轮动发送测试.html). Keep these in sync with the ESP32 firmware.
+const DEVICE_NAME = "Vibration_Egg";
+const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+const CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+
+// Hardware command mapping: ESP32 expects a single ASCII digit.
+// Per the test-page comment "'0', '1', '2', '3' 对应 高/中/低/停", the mapping
+// is INVERTED from the app's Intensity (0=off, 3=high).
+//   app intensity 0 (off)  → send '3'  (停)
+//   app intensity 1 (low)  → send '2'  (低)
+//   app intensity 2 (med)  → send '1'  (中)
+//   app intensity 3 (high) → send '0'  (高)
+const INTENSITY_TO_CMD: Record<Intensity, string> = {
+  0: "3",
+  1: "2",
+  2: "1",
+  3: "0",
+};
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type BtStatus = "idle" | "connecting" | "connected" | "offline" | "error";
@@ -41,10 +55,6 @@ export function isOffline(): boolean {
   return state.status === "offline";
 }
 
-function uuidsPending(): boolean {
-  return SERVICE_UUID.startsWith("TODO-") || CHAR_UUID.startsWith("TODO-");
-}
-
 export function supportsWebBluetooth(): boolean {
   return typeof navigator !== "undefined" && "bluetooth" in navigator;
 }
@@ -52,13 +62,12 @@ export function supportsWebBluetooth(): boolean {
 /**
  * Open the browser's native BT chooser and connect to the toy.
  * Falls back to offline mode (no-op writes) if:
- *   - hardware UUIDs are still TODO
- *   - navigator.bluetooth is unavailable (iOS Safari)
+ *   - navigator.bluetooth is unavailable (iOS Safari, non-secure context)
  *   - the user dismisses the chooser
- *   - connection fails
+ *   - connection / service discovery fails
  */
 export async function connect(): Promise<BtStatus> {
-  if (uuidsPending() || !supportsWebBluetooth()) {
+  if (!supportsWebBluetooth()) {
     setStatus("offline");
     return "offline";
   }
@@ -66,7 +75,8 @@ export async function connect(): Promise<BtStatus> {
   setStatus("connecting");
   try {
     const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }],
+      filters: [{ name: DEVICE_NAME }],
+      optionalServices: [SERVICE_UUID],
     });
     state.device = device;
     device.addEventListener("gattserverdisconnected", () => {
@@ -95,8 +105,9 @@ export function goOffline(): void {
 export async function writeIntensity(level: Intensity): Promise<void> {
   if (!state.characteristic) return;
   try {
-    const buf = new Uint8Array([level]);
-    await state.characteristic.writeValueWithoutResponse(buf);
+    const cmd = INTENSITY_TO_CMD[level];
+    const buf = new TextEncoder().encode(cmd);
+    await state.characteristic.writeValue(buf);
   } catch {
     // Silent failure — viz remains authoritative in the demo
   }
