@@ -288,6 +288,14 @@ async function handleMessage(room: Room, role: Role, msg: ClientMsg): Promise<vo
       return;
     }
 
+    case "bt_status": {
+      // Relay sender's local BT state to the peer so S can tell whether
+      // M's hardware is actually paired.
+      const peer = peerOf(room, role);
+      sendJson(peer, { type: "peer_bt_status", role, status: msg.status });
+      return;
+    }
+
     case "chat": {
       if (!bothReady(room)) return;
       // Assign seq_id synchronously BEFORE any await — preserves send order.

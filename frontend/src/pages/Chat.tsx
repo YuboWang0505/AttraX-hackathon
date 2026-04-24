@@ -31,6 +31,7 @@ export function Chat() {
   }>({ visible: false, reason: null });
   const [btInterrupted, setBtInterrupted] = useState(false);
   const [btReconnecting, setBtReconnecting] = useState(false);
+  const [peerBtStatus, setPeerBtStatus] = useState<BtStatus | null>(null);
 
   const wsRef = useRef<WsHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -52,18 +53,24 @@ export function Chat() {
 
   // M side: watch for mid-session BT interruption (GATT disconnected after
   // being connected). Show pause overlay until user reconnects or exits.
+  // Also announce every status change to the server so S can display the
+  // peer's hardware state instead of its own (offline) state.
   useEffect(() => {
-    if (role !== "m" || demoMode) return;
+    if (role !== "m") return;
     let prev: BtStatus = bt.getStatus();
     const unsub = bt.subscribe((next) => {
-      if (prev === "connected" && next !== "connected") {
-        setBtInterrupted(true);
+      if (!demoMode) {
+        if (prev === "connected" && next !== "connected") {
+          setBtInterrupted(true);
+        }
+        if (next === "connected" && prev !== "connected") {
+          setBtInterrupted(false);
+          setBtReconnecting(false);
+          void bt.writeIntensity(intensityRef.current);
+        }
       }
-      if (next === "connected" && prev !== "connected") {
-        setBtInterrupted(false);
-        setBtReconnecting(false);
-        // Resume motor at the last intensity value after reconnect
-        void bt.writeIntensity(intensityRef.current);
+      if (wsRef.current?.isOpen()) {
+        wsRef.current.send({ type: "bt_status", status: next });
       }
       prev = next;
     });
@@ -104,6 +111,13 @@ export function Chat() {
       case "room_ready":
         setConnection("ready");
         if (msg.safeWord && !safeWord) setSafeWord(msg.safeWord);
+        // M announces its current BT status on join so S's badge is accurate
+        if (role === "m" && wsRef.current?.isOpen()) {
+          wsRef.current.send({ type: "bt_status", status: bt.getStatus() });
+        }
+        return;
+      case "peer_bt_status":
+        setPeerBtStatus(msg.status);
         return;
       case "room_waiting":
         setConnection("waiting");
@@ -192,7 +206,11 @@ export function Chat() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <BluetoothStatus />
+          {role === "m" ? (
+            <BluetoothStatus />
+          ) : (
+            <BluetoothStatus status={peerBtStatus} peer />
+          )}
           <button
             onClick={handleLeave}
             className="text-xs text-attrax-danger px-2 py-1 rounded-btn border border-attrax-danger/40"
@@ -225,7 +243,11 @@ export function Chat() {
             <div className="text-sm text-attrax-muted">{statusText}</div>
           </div>
           <div className="flex items-center gap-3">
+            {role === "m" ? (
             <BluetoothStatus />
+          ) : (
+            <BluetoothStatus status={peerBtStatus} peer />
+          )}
             <button
               onClick={handleLeave}
               className="text-xs text-attrax-danger px-3 py-1.5 rounded-btn border border-attrax-danger/40 hover:bg-attrax-danger/10"

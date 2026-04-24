@@ -21,9 +21,18 @@ export type IntentCode =
   | "S_REWARD_HIGH"
   | "S_AFTERCARE";
 
+/** Broadcast-friendly subset of bluetooth.ts BtStatus. */
+export type BtBroadcastStatus =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "offline"
+  | "error";
+
 export type ClientMsg =
   | { type: "set_safe_word"; word: string }
   | { type: "chat"; text: string }
+  | { type: "bt_status"; status: BtBroadcastStatus }
   | { type: "leave" }
   | { type: "ping" };
 
@@ -46,6 +55,7 @@ export type ServerMsg =
       timestamp: number;
     }
   | { type: "safe_word_triggered"; by: Role }
+  | { type: "peer_bt_status"; role: Role; status: BtBroadcastStatus }
   | { type: "peer_left" }
   | { type: "error"; code: ErrorCode; message: string }
   | { type: "pong" };
