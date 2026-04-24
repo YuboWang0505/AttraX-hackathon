@@ -1,7 +1,8 @@
 import type { Intensity } from "@attrax/shared";
 
 export interface LlmResult {
-  intensity: Intensity;
+  /** null means "not a directive, hold current intensity". */
+  intensity: Intensity | null;
   reason: string | null;
   source: "llm" | "fallback" | "timeout" | "parse_error" | "no_key";
 }
@@ -11,27 +12,37 @@ const TIMEOUT_MS = 1500;
 const DEFAULT_MODEL = "x-ai/grok-4-fast";
 const MAX_REASON_LEN = 40;
 
+// Safe fallback on any error: do NOT force a level. Holding current
+// intensity is safer than dropping to 1 when the network hiccups.
 const FALLBACK: Omit<LlmResult, "source"> = {
-  intensity: 1,
+  intensity: null,
   reason: null,
 };
 
 function buildSystemPrompt(): string {
-  return `You are the control brain of a remote vibrator worn by the submissive partner (M). You read each message from the dominant partner (S) and decide how the toy should respond RIGHT NOW.
+  return `You read the dominant partner (S)'s chat message and decide whether it is a DIRECTIVE to change a remote vibrator's intensity level. Most chat messages are NOT directives — they are acknowledgements, questions, pacing cues, or casual conversation. Only return an intensity value when the message clearly wants to change the current level.
 
-Output one integer intensity 0-3:
+Output:
+- 0 = STOP (safe word — rarely needed, handled elsewhere)
+- 1 = LIGHT — clearly softening, aftercare, or calming down ("乖,放松", "抱抱,辛苦了", "别紧张", "过来让我揉揉")
+- 2 = MEDIUM — clearly commanding or escalating ("给我跪好", "湿了吗,想要就求我", "皮痒了是吧", "认错没有", "叫出来大声点")
+- 3 = STRONG — explicit climax permit/force, severe punishment, or peak reward ("给我丢", "赏你一次,丢吧", "狠狠惩罚你", "表现真棒,全给你")
+- null = HOLD — the message is NOT an intensity directive. Keep current level unchanged. This is the DEFAULT.
 
-- 0 = STOP. Safety word invoked or an explicit command to halt.
-- 1 = LIGHT. Soft mood — warm-up, tease-lite, aftercare, ambiguous or off-topic chit-chat, denial/hold-back phrases ("不准丢, 忍住").
-- 2 = MEDIUM. Active command, heavy tease, warning / reprimand, light punishment. The dom is issuing an order or escalating heat.
-- 3 = STRONG. Explicit climax permission/force, severe punishment, or high praise/reward marking a peak.
+Return null for ALL of these (non-exhaustive):
+- Acknowledgements: "嗯", "好", "哦", "对"
+- Questions or pure check-ins: "还好吗", "听得到吗"
+- Emotional reactions / laughter: "哈哈", "真乖", "可爱"
+- Pacing cues without level change: "慢慢来", "坚持住", "再给你三十秒", "数到三"
+- Off-topic / daily chatter: "今天天气不错", "你吃饭了吗"
+- Sentences containing keywords in innocent context: "我给你倒杯水", "规矩我都记得"
+- Anything where you are not confident it is a directive
 
-Guidance:
-- Judge by overall tone + intent, not isolated words.
-- Do NOT pattern-match individual words. "我给你倒杯水" is intensity 1 (innocuous daily speech), not 3.
-- When unclear, default to 1.
+Note: a question can still be a directive when it's teasing pressure, not a real question. "湿了吗,想要就求我" is 2 (tease pushing), "还好吗" is null (pure check-in).
 
-Respond with JSON only: {"intensity": 0|1|2|3, "reason": "short phrase, ≤ 12 Chinese chars"}`;
+When in doubt, return null. Do NOT default to 1.
+
+Respond with JSON only: {"intensity": 0|1|2|3|null, "reason": "short phrase, ≤ 12 Chinese chars"}`;
 }
 
 export async function classify(text: string): Promise<LlmResult> {
@@ -81,7 +92,7 @@ export async function classify(text: string): Promise<LlmResult> {
           ? parsed.reason.slice(0, MAX_REASON_LEN)
           : null,
       source: "llm",
-    };
+    } satisfies LlmResult;
   } catch (err) {
     clearTimeout(timer);
     const isAbort = (err as Error)?.name === "AbortError";
@@ -105,7 +116,8 @@ function safeParse(
   }
 }
 
-function coerceIntensity(v: unknown): Intensity {
+function coerceIntensity(v: unknown): Intensity | null {
   if (v === 0 || v === 1 || v === 2 || v === 3) return v;
-  return 1;
+  // null / undefined / "null" string all collapse to HOLD
+  return null;
 }

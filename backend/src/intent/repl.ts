@@ -27,9 +27,10 @@ rl.on("line", async (line) => {
   }
   try {
     const r = await runPipeline(text, SAFE_WORD);
+    const intensityStr = r.intensity === null ? "HOLD" : String(r.intensity);
     const label = r.safeWordTriggered
       ? "SAFE_WORD_TRIGGERED"
-      : `intensity=${r.intensity} (${r.layer})${r.reason ? ` · ${r.reason}` : ""}`;
+      : `intensity=${intensityStr} (${r.layer})${r.reason ? ` · ${r.reason}` : ""}`;
     console.log(`  → ${label}`);
   } catch (err) {
     console.error("  ! pipeline error:", err);

@@ -331,12 +331,13 @@ async function handleMessage(room: Room, role: Role, msg: ClientMsg): Promise<vo
         return;
       }
 
-      // Per PRD §4.2: only S messages drive intensity. M messages leave the
-      // current level unchanged — we broadcast the room's current intensity
-      // so the client's monotonic seq_id filter still sees a valid update
-      // (no-op in practice since the value didn't change) rather than an
-      // unwanted forced-zero that would stop the hardware.
-      if (role === "s") {
+      // Only S messages may change intensity. M messages always hold.
+      // On S side: if the LLM returned a concrete 0-3 it's a directive →
+      // update current level. If it returned null (non-directive: ack,
+      // question, pacing cue, off-topic, low-confidence), we hold the
+      // current level — do NOT reset to 1, which would surprise users
+      // mid-scene when S just says "嗯" or "慢慢来".
+      if (role === "s" && result.intensity !== null) {
         room.currentIntensity = result.intensity;
       }
 

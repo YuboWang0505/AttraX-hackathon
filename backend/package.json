@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "repl": "tsx src/intent/repl.ts",
-    "test:openrouter": "tsx src/intent/openrouter-test.ts"
+    "test:openrouter": "tsx src/intent/openrouter-test.ts",
+    "test:pipeline": "tsx src/intent/pipeline-test.ts"
   },
   "dependencies": {
     "@attrax/shared": "*",

@@ -1,22 +1,30 @@
 import type { Intensity } from "@attrax/shared";
 import { isSafeWordMatch } from "../safe-word.js";
+import { matchKeywordTable } from "./keyword-table.js";
 import { classify } from "./llm.js";
 
 export interface PipelineResult {
-  intensity: Intensity;
+  /** null means "not a directive, caller should hold current intensity". */
+  intensity: Intensity | null;
   reason: string | null;
   safeWordTriggered: boolean;
-  layer: "safe_word" | "llm" | "fallback";
+  layer: "safe_word" | "keyword" | "llm" | "fallback";
 }
 
 /**
- * 2-layer intent pipeline per REFACTOR-llm-direct.md.
+ * 3-layer intent pipeline.
  *
  *   Layer 0 — safe word (exact equality after normalization). Rule-based,
- *             sub-millisecond, must never depend on LLM for safety reasons.
- *   Layer 1 — LLM direct intensity classification via OpenRouter.
- *             ~900ms typical, 1500ms hard timeout. On no-key / timeout /
- *             HTTP error / parse failure, falls back to intensity=1.
+ *             sub-millisecond, must never depend on LLM for safety.
+ *   Layer 1 — keyword-table substring match. 16 rules from PRD v1.2
+ *             Appendix A (ambiguous words already cleaned). Sub-10ms,
+ *             deterministic, emits intensity + fixed reason label.
+ *             Never emits HOLD — LLM handles the long tail.
+ *   Layer 2 — LLM direct classification via OpenRouter (Grok-4-Fast).
+ *             ~750ms typical, 1500ms hard timeout. Returns one of:
+ *             0/1/2/3 (directive) or null (HOLD — caller keeps current
+ *             intensity). On no-key / timeout / HTTP / parse error,
+ *             falls back to null (HOLD) so hardware never drifts.
  */
 export async function runPipeline(
   text: string,
@@ -28,6 +36,16 @@ export async function runPipeline(
       reason: null,
       safeWordTriggered: true,
       layer: "safe_word",
+    };
+  }
+
+  const kw = matchKeywordTable(text);
+  if (kw) {
+    return {
+      intensity: kw.intensity,
+      reason: kw.reason,
+      safeWordTriggered: false,
+      layer: "keyword",
     };
   }
 
