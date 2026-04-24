@@ -18,11 +18,11 @@ const PEER_LABEL: Record<BtStatus, string> = {
 };
 
 const COLOR: Record<BtStatus, string> = {
-  idle: "bg-attrax-muted",
+  idle: "bg-ink-500",
   connecting: "bg-yellow-500 animate-pulse",
   connected: "bg-emerald-500",
-  offline: "bg-attrax-accent",
-  error: "bg-attrax-danger",
+  offline: "bg-synth-orange",
+  error: "bg-red-500",
 };
 
 interface Props {
@@ -41,9 +41,9 @@ export function BluetoothStatus({ status: override, peer = false }: Props) {
 
   if (peer && override === null) {
     return (
-      <div className="inline-flex items-center gap-2 rounded-btn bg-attrax-panel/70 px-2 py-1 text-xs border border-white/5">
-        <span className="inline-block w-2 h-2 rounded-full bg-attrax-muted" />
-        <span className="text-attrax-muted">等待对方硬件</span>
+      <div className="inline-flex items-center gap-2 rounded-pill bg-black/70 backdrop-blur px-3 py-1.5 text-xs text-white/80">
+        <span className="inline-block w-2 h-2 rounded-full bg-white/40" />
+        <span>等待对方硬件</span>
       </div>
     );
   }
@@ -51,9 +51,9 @@ export function BluetoothStatus({ status: override, peer = false }: Props) {
   const status = (override ?? localStatus) as BtStatus;
   const label = peer ? PEER_LABEL[status] : SELF_LABEL[status];
   return (
-    <div className="inline-flex items-center gap-2 rounded-btn bg-attrax-panel/70 px-2 py-1 text-xs border border-white/5">
+    <div className="inline-flex items-center gap-2 rounded-pill bg-black/70 backdrop-blur px-3 py-1.5 text-xs text-white/80">
       <span className={`inline-block w-2 h-2 rounded-full ${COLOR[status]}`} />
-      <span className="text-attrax-muted">{label}</span>
+      <span>{label}</span>
     </div>
   );
 }

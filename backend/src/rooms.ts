@@ -300,6 +300,32 @@ async function handleMessage(room: Room, role: Role, msg: ClientMsg): Promise<vo
       return;
     }
 
+    case "call_invite": {
+      if (!bothReady(room)) return;
+      sendJson(peerOf(room, role), { type: "peer_call_invite", from: role });
+      return;
+    }
+
+    case "call_accept": {
+      sendJson(peerOf(room, role), { type: "peer_call_accept" });
+      return;
+    }
+
+    case "call_reject": {
+      sendJson(peerOf(room, role), { type: "peer_call_reject" });
+      return;
+    }
+
+    case "call_cancel": {
+      sendJson(peerOf(room, role), { type: "peer_call_cancel" });
+      return;
+    }
+
+    case "call_timeout": {
+      sendJson(peerOf(room, role), { type: "peer_call_timeout" });
+      return;
+    }
+
     case "rtc_offer": {
       sendJson(peerOf(room, role), { type: "peer_rtc_offer", sdp: msg.sdp });
       return;

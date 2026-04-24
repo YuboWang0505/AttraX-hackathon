@@ -12,3 +12,5 @@ coverage
 *.tsbuildinfo
 frontend/vite.config.d.ts
 frontend/vite.config.js
+shared/src/*.d.ts
+shared/src/*.js

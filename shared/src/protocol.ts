@@ -24,7 +24,16 @@ export type ClientMsg =
   | { type: "bt_status"; status: BtBroadcastStatus }
   | { type: "leave" }
   | { type: "ping" }
-  // Voice call (v2): WebRTC signaling relayed transparently to peer.
+  // Voice call (v2) — application-layer ringing protocol. Both sides agree
+  // via invite/accept BEFORE any SDP is generated, so the microphone only
+  // opens once the callee has actually picked up (WeChat / Feishu-style).
+  | { type: "call_invite" }
+  | { type: "call_accept" }
+  | { type: "call_reject" }
+  | { type: "call_cancel" }
+  | { type: "call_timeout" }
+  // WebRTC signaling relayed transparently to peer. Only sent after the
+  // call has been accepted on both sides.
   | { type: "rtc_offer"; sdp: string }
   | { type: "rtc_answer"; sdp: string }
   | { type: "rtc_ice"; candidate: RelayIceCandidate }
@@ -57,7 +66,13 @@ export type ServerMsg =
   | { type: "peer_left" }
   | { type: "error"; code: ErrorCode; message: string }
   | { type: "pong" }
-  // Voice call relays — server passes these through from the other role.
+  // Ringing protocol relays.
+  | { type: "peer_call_invite"; from: Role }
+  | { type: "peer_call_accept" }
+  | { type: "peer_call_reject" }
+  | { type: "peer_call_cancel" }
+  | { type: "peer_call_timeout" }
+  // WebRTC signaling relays — server passes these through from the other role.
   | { type: "peer_rtc_offer"; sdp: string }
   | { type: "peer_rtc_answer"; sdp: string }
   | { type: "peer_rtc_ice"; candidate: RelayIceCandidate }

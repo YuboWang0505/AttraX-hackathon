@@ -20,6 +20,15 @@ export type ConnectionStatus =
   | "disconnected"
   | "terminated";
 
+/**
+ * Ringing protocol state machine.
+ *   idle      — no call in progress
+ *   calling   — local user pressed 📞, waiting for peer to accept
+ *   ringing   — peer is calling us, waiting for local user to accept / reject
+ *   in_call   — both sides accepted, SDP negotiated, audio is flowing
+ */
+export type CallState = "idle" | "calling" | "ringing" | "in_call";
+
 interface AppState {
   page: Page;
   role: Role | null;
@@ -28,6 +37,7 @@ interface AppState {
   /** True when the user explicitly skipped BT pairing via "演示模式". */
   demoMode: boolean;
   connection: ConnectionStatus;
+  callState: CallState;
   messages: ChatMessage[];
   intensity: Intensity;
   lastAppliedSeqId: number;
@@ -38,6 +48,7 @@ interface AppState {
   setSafeWord: (w: string) => void;
   setDemoMode: (v: boolean) => void;
   setConnection: (s: ConnectionStatus) => void;
+  setCallState: (s: CallState) => void;
 
   appendMessage: (m: ChatMessage) => void;
   resetSession: () => void;
@@ -51,6 +62,7 @@ export const useStore = create<AppState>((set) => ({
   safeWord: "",
   demoMode: false,
   connection: "idle",
+  callState: "idle",
   messages: [],
   intensity: 0,
   lastAppliedSeqId: 0,
@@ -61,6 +73,7 @@ export const useStore = create<AppState>((set) => ({
   setSafeWord: (safeWord) => set({ safeWord }),
   setDemoMode: (demoMode) => set({ demoMode }),
   setConnection: (connection) => set({ connection }),
+  setCallState: (callState) => set({ callState }),
 
   appendMessage: (m) =>
     set((state) => {
@@ -86,6 +99,7 @@ export const useStore = create<AppState>((set) => ({
       safeWord: "",
       demoMode: false,
       connection: "idle",
+      callState: "idle",
       messages: [],
       intensity: 0,
       lastAppliedSeqId: 0,
@@ -95,6 +109,7 @@ export const useStore = create<AppState>((set) => ({
     set({
       page: "terminated",
       connection: "terminated",
+      callState: "idle",
       intensity: 0,
     }),
 }));

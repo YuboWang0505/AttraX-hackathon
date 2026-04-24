@@ -44,7 +44,7 @@ export function IntensityViz({ intensity, compact = false }: Props) {
               style={{
                 width: ringSize,
                 height: ringSize,
-                borderColor: "rgba(240, 122, 58, 0.6)",
+                borderColor: "rgba(255, 136, 50, 0.6)",
               }}
               initial={{ scale: 0.45, opacity: 0.8 }}
               animate={{ scale: 1.05, opacity: 0 }}
