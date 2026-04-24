@@ -49,6 +49,6 @@ server.on("upgrade", (req, socket, head) => {
 server.listen(PORT, () => {
   console.log(`[attrax] backend listening on http://localhost:${PORT}`);
   console.log(
-    `[attrax] gemini key: ${process.env.GEMINI_API_KEY ? "present" : "absent (fallback mode)"}`,
+    `[attrax] openrouter key: ${process.env.OPENROUTER_API_KEY ? "present" : "absent (fallback mode)"}`,
   );
 });

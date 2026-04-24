@@ -1,6 +1,7 @@
 import type {
   ClientMsg,
   ErrorCode,
+  Intensity,
   Role,
   ServerMsg,
 } from "@attrax/shared";
@@ -17,6 +18,8 @@ export interface Room {
   sWs: WebSocket | null;
   mWs: WebSocket | null;
   seqCounter: number;
+  /** Last intensity applied by S. M messages do NOT change this. */
+  currentIntensity: Intensity;
   createdAt: number;
   lastActivity: number;
   /** If role is disconnected, ms timestamp when we started the grace window. */
@@ -236,6 +239,7 @@ function createRoom(code: string): Room {
     sWs: null,
     mWs: null,
     seqCounter: 0,
+    currentIntensity: 0,
     createdAt: Date.now(),
     lastActivity: Date.now(),
     sDisconnectAt: null,
@@ -327,16 +331,21 @@ async function handleMessage(room: Room, role: Role, msg: ClientMsg): Promise<vo
         return;
       }
 
-      // Per PRD §4.2: M messages do NOT drive intensity. Broadcast with intensity=0
-      // when the sender is M so the M chat bubble still renders but viz doesn't change.
-      const intensity = role === "s" ? result.intensity : 0;
+      // Per PRD §4.2: only S messages drive intensity. M messages leave the
+      // current level unchanged — we broadcast the room's current intensity
+      // so the client's monotonic seq_id filter still sees a valid update
+      // (no-op in practice since the value didn't change) rather than an
+      // unwanted forced-zero that would stop the hardware.
+      if (role === "s") {
+        room.currentIntensity = result.intensity;
+      }
 
       const out: ServerMsg = {
         type: "chat",
         from: role,
         text,
-        intensity,
-        intent_code: result.intent_code,
+        intensity: room.currentIntensity,
+        reason: result.reason,
         seq_id,
         timestamp: Date.now(),
       };

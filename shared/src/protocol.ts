@@ -2,25 +2,6 @@ export type Role = "s" | "m";
 
 export type Intensity = 0 | 1 | 2 | 3;
 
-export type IntentCode =
-  | "SYS_SAFE_WORD"
-  | "S_WARM_UP"
-  | "S_GREET_WARM"
-  | "S_GREET_DOM"
-  | "S_TEASE_LIGHT"
-  | "S_TEASE_HEAVY"
-  | "S_COMMAND_DAILY"
-  | "S_COMMAND_POSTURE"
-  | "S_COMMAND_VERBAL"
-  | "S_DENIAL_CONTROL"
-  | "S_WARNING"
-  | "S_PUNISH_LIGHT"
-  | "S_PUNISH_STRICT"
-  | "S_CLIMAX_PERMISSION"
-  | "S_CLIMAX_FORCED"
-  | "S_REWARD_HIGH"
-  | "S_AFTERCARE";
-
 /** Broadcast-friendly subset of bluetooth.ts BtStatus. */
 export type BtBroadcastStatus =
   | "idle"
@@ -50,7 +31,8 @@ export type ServerMsg =
       from: Role;
       text: string;
       intensity: Intensity;
-      intent_code: IntentCode;
+      /** Short natural-language summary from the LLM (or null if rule/fallback path). */
+      reason: string | null;
       seq_id: number;
       timestamp: number;
     }

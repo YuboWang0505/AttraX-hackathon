@@ -128,6 +128,17 @@ export async function disconnect(): Promise<void> {
       // ignore
     }
   }
+  // Chrome 104+: drop the device from the browser's permitted-devices list
+  // so the next requestDevice() does a fresh scan instead of returning a
+  // cached handle that may no longer be advertising visibly.
+  const dev = state.device as (BluetoothDevice & { forget?: () => Promise<void> }) | null;
+  if (dev && typeof dev.forget === "function") {
+    try {
+      await dev.forget();
+    } catch {
+      // ignore
+    }
+  }
   state.characteristic = null;
   state.device = null;
   setStatus("idle");

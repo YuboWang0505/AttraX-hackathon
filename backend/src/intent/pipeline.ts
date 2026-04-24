@@ -1,25 +1,22 @@
-import type { IntentCode, Intensity } from "@attrax/shared";
+import type { Intensity } from "@attrax/shared";
 import { isSafeWordMatch } from "../safe-word.js";
-import { classify } from "./gemini.js";
-import { matchKeywords } from "./keywords.js";
+import { classify } from "./llm.js";
 
 export interface PipelineResult {
-  intent_code: IntentCode;
   intensity: Intensity;
+  reason: string | null;
   safeWordTriggered: boolean;
-  layer: "safe_word" | "keywords" | "gemini" | "fallback";
+  layer: "safe_word" | "llm" | "fallback";
 }
 
 /**
- * 3-layer intent pipeline per PRD §4.4.
+ * 2-layer intent pipeline per REFACTOR-llm-direct.md.
  *
- *   Layer 0 — safe word (exact equality after normalization)
- *   Layer 1 — keyword substring match from INTENT_TABLE
- *   Layer 2 — Gemini classification (with no-key / timeout fallback to intensity=1)
- *
- * Safe word check is authoritative: on match, returns intensity=0 and
- * flags safeWordTriggered=true so the caller (rooms.ts) can skip broadcasting
- * a chat and emit safe_word_triggered instead.
+ *   Layer 0 — safe word (exact equality after normalization). Rule-based,
+ *             sub-millisecond, must never depend on LLM for safety reasons.
+ *   Layer 1 — LLM direct intensity classification via OpenRouter.
+ *             ~900ms typical, 1500ms hard timeout. On no-key / timeout /
+ *             HTTP error / parse failure, falls back to intensity=1.
  */
 export async function runPipeline(
   text: string,
@@ -27,28 +24,18 @@ export async function runPipeline(
 ): Promise<PipelineResult> {
   if (isSafeWordMatch(text, safeWord)) {
     return {
-      intent_code: "SYS_SAFE_WORD",
       intensity: 0,
+      reason: null,
       safeWordTriggered: true,
       layer: "safe_word",
     };
   }
 
-  const kw = matchKeywords(text);
-  if (kw) {
-    return {
-      intent_code: kw.intent_code,
-      intensity: kw.intensity,
-      safeWordTriggered: false,
-      layer: "keywords",
-    };
-  }
-
-  const g = await classify(text);
+  const r = await classify(text);
   return {
-    intent_code: g.intent_code,
-    intensity: g.intensity,
+    intensity: r.intensity,
+    reason: r.reason,
     safeWordTriggered: false,
-    layer: g.source === "gemini" ? "gemini" : "fallback",
+    layer: r.source === "llm" ? "llm" : "fallback",
   };
 }

@@ -21,7 +21,6 @@ export function Chat() {
     appendMessage,
     setSafeWord,
     terminate,
-    resetSession,
   } = useStore();
 
   const [input, setInput] = useState("");
@@ -128,7 +127,7 @@ export function Chat() {
           from: msg.from,
           text: msg.text,
           intensity: msg.intensity,
-          intent_code: msg.intent_code,
+          reason: msg.reason,
           seq_id: msg.seq_id,
           timestamp: msg.timestamp,
         });
@@ -139,7 +138,7 @@ export function Chat() {
         void bt.writeIntensity(0);
         void bt.disconnect();
         setTimeout(() => {
-          resetSession();
+          window.location.reload();
         }, 2000);
         return;
       case "peer_left":
@@ -148,14 +147,14 @@ export function Chat() {
         void bt.writeIntensity(0);
         void bt.disconnect();
         setTimeout(() => {
-          resetSession();
+          window.location.reload();
         }, 2000);
         return;
       case "error":
         setConnection("disconnected");
         setTerminatedBanner({ visible: true, reason: "peer_left" });
         setTimeout(() => {
-          resetSession();
+          window.location.reload();
         }, 2000);
         return;
       case "pong":
@@ -178,9 +177,20 @@ export function Chat() {
     setInput("");
   }
 
-  function handleLeave() {
+  async function handleLeave() {
     wsRef.current?.leave();
-    resetSession();
+    try {
+      await bt.writeIntensity(0);
+    } catch {
+      // ignore
+    }
+    await bt.disconnect();
+    // Hard reload: Chrome's internal BT pipeline accumulates state across
+    // repeated requestDevice/connect/disconnect/forget cycles and after a
+    // handful of rounds requestDevice() starts failing or timing out.
+    // Reloading destroys the page's BT context so the next session gets a
+    // fresh one — equivalent to the manual F5 workaround.
+    window.location.reload();
   }
 
   const statusText = useMemo(() => {
@@ -192,7 +202,7 @@ export function Chat() {
   }, [connection]);
 
   return (
-    <div className="min-h-full flex flex-col md:flex-row bg-grad-cool text-ink-900">
+    <div className="min-h-full flex flex-col md:flex-row bg-haze text-ink-900">
       {/* Header */}
       <div className="md:hidden px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between border-b border-ink-300/60">
         <div className="flex gap-4 text-xs">
@@ -310,7 +320,7 @@ export function Chat() {
                 ? "输入消息…"
                 : "等待连接…"
             }
-            className="flex-1 min-w-0 bg-ink-900 text-white placeholder:text-ink-500 border border-ink-700 rounded-pill px-5 py-3 focus:border-accent-500 outline-none disabled:opacity-40"
+            className="flex-1 min-w-0 bg-stage text-white placeholder:text-ink-500 border border-ink-700 rounded-pill px-5 py-3 focus:border-accent-500 outline-none disabled:opacity-40"
             maxLength={200}
           />
           <button

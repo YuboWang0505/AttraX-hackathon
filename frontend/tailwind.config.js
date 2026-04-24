@@ -24,19 +24,25 @@ export default {
           ok: "#22c55e",
           warn: "#f59e0b",
         },
-        // UI.md design tokens
+        // UI.md design tokens (values from 原版 column)
+        // bg-stage — pure black scene background (Login / BtGate / dark inputs)
+        stage: "#000000",
+        // text / surface inks
         ink: {
-          900: "#0A0A0A",
-          800: "#1C1C1E",
-          700: "#3A3A3C",
-          500: "#8E8E93",
-          300: "#D1D1D6",
+          900: "#1A1A1A", // text-on-light
+          800: "#1C1C1E", // dark card bg (iOS-style)
+          700: "#3F3F3F", // surface-dark (list containers)
+          500: "#9A9A9A", // text-muted
+          300: "#D1D1D6", // light dividers
           100: "#F2F2F7",
         },
+        // surface-light
         paper: "#FFFFFF",
-        "accent-500": "#F07A3A",
-        "accent-600": "#D65F21",
+        // brand-primary — orange CTA
+        "accent-500": "#F08A3E",
+        "accent-600": "#D77027", // hover/pressed
         "accent-300": "#F5A98C",
+        // semantic
         danger: "#EF4444",
         ok: "#22C55E",
         warn: "#F59E0B",
@@ -54,25 +60,22 @@ export default {
       borderRadius: {
         btn: "8px",
         bubble: "24px",
-        card: "20px",
+        card: "24px", // UI.md radius-card
         tile: "16px",
-        pill: "9999px",
+        pill: "999px", // UI.md radius-pill
         sheet: "28px",
       },
       backgroundImage: {
-        "attrax-grad": "linear-gradient(135deg, #f07a3a 0%, #ff6b3a 100%)",
-        "grad-cool":
-          "radial-gradient(120% 80% at 20% 10%, #E5ECF5 0%, transparent 60%)," +
-          "radial-gradient(100% 70% at 80% 30%, #C6D3ED 0%, transparent 60%)," +
-          "radial-gradient(120% 80% at 50% 90%, #A9BEE1 0%, transparent 70%)",
-        "grad-warm":
-          "radial-gradient(120% 80% at 30% 20%, #FBE5D6 0%, transparent 60%)," +
-          "radial-gradient(100% 70% at 75% 50%, #F5B089 0%, transparent 60%)," +
-          "radial-gradient(130% 90% at 50% 100%, #F07A3A 0%, transparent 70%)",
-        "grad-fever":
-          "radial-gradient(100% 70% at 30% 20%, #F5A98C 0%, transparent 60%)," +
-          "radial-gradient(110% 80% at 70% 60%, #F07A3A 0%, transparent 60%)," +
-          "radial-gradient(130% 90% at 50% 100%, #C73E6E 0%, transparent 70%)",
+        "attrax-grad": "linear-gradient(135deg, #F08A3E 0%, #ff6b3a 100%)",
+        // UI.md bg-haze: 浅蓝粉橙径向渐变 (light scene page bg)
+        haze:
+          "radial-gradient(100% 70% at 15% 20%, #DDE6F2 0%, transparent 60%)," +
+          "radial-gradient(110% 70% at 85% 40%, #F4CEDD 0%, transparent 60%)," +
+          "radial-gradient(120% 80% at 50% 95%, #F9D6B3 0%, transparent 70%)",
+        // UI.md gradient-hero: radial warm halo for splash/brand moments
+        "gradient-hero":
+          "radial-gradient(80% 60% at 50% 50%, #F08A3E 0%, transparent 55%)," +
+          "radial-gradient(100% 80% at 60% 40%, #E4A5F0 0%, transparent 65%)",
       },
       boxShadow: {
         bubble: "0 1px 2px rgba(0,0,0,0.04)",

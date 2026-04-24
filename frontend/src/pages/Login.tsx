@@ -102,7 +102,7 @@ export function Login() {
                 setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LEN))
               }
               placeholder="留空 + 创建 或 输入对方已有 code"
-              className="w-full bg-ink-900 text-white placeholder:text-ink-500 border border-ink-700 rounded-pill px-5 py-3 text-center text-xl font-mono tracking-[0.5em] focus:border-accent-500 outline-none"
+              className="w-full bg-stage text-white placeholder:text-ink-500 border border-ink-700 rounded-pill px-5 py-3 text-center text-xl font-mono tracking-[0.5em] focus:border-accent-500 outline-none"
             />
           </div>
 
@@ -116,7 +116,7 @@ export function Login() {
               value={safeWord}
               onChange={(e) => setSafeWord(e.target.value)}
               placeholder="安全词"
-              className="w-full bg-ink-900 text-white placeholder:text-ink-500 border border-ink-700 rounded-pill px-5 py-3 focus:border-accent-500 outline-none"
+              className="w-full bg-stage text-white placeholder:text-ink-500 border border-ink-700 rounded-pill px-5 py-3 focus:border-accent-500 outline-none"
             />
             <p className="text-[11px] text-ink-500 mt-1">
               任一方说出安全词，会话立即安全终止。以先进入房间方设置的为准。

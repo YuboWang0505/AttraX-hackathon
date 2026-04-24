@@ -1,4 +1,4 @@
-import type { IntentCode, Intensity, Role } from "@attrax/shared";
+import type { Intensity, Role } from "@attrax/shared";
 import { create } from "zustand";
 
 export type Page = "login" | "bt_gate" | "chat" | "terminated";
@@ -8,7 +8,7 @@ export interface ChatMessage {
   from: Role;
   text: string;
   intensity: Intensity;
-  intent_code: IntentCode;
+  reason: string | null;
   seq_id: number;
   timestamp: number;
 }

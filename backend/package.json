@@ -9,7 +9,8 @@
     "start": "node dist/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
-    "repl": "tsx src/intent/repl.ts"
+    "repl": "tsx src/intent/repl.ts",
+    "test:openrouter": "tsx src/intent/openrouter-test.ts"
   },
   "dependencies": {
     "@attrax/shared": "*",
