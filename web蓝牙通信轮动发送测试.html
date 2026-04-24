@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32-S3 蓝牙电机控制终端</title>
+  <style>
+    :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --success: #22c55e; --warn: #f59e0b; --err: #ef4444; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+    .card { background: var(--card); padding: 1.5rem; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+    h2 { margin: 0 0 1rem; font-size: 1.4rem; display: flex; align-items: center; gap: 0.5rem; }
+    #status { padding: 0.6rem; margin: 1rem 0; border-radius: 8px; font-weight: 600; text-align: center; background: #334155; transition: all 0.3s; }
+    .connected { background: rgba(34,197,94,0.2); color: var(--success); border: 1px solid var(--success); }
+    .disconnected { background: rgba(239,68,68,0.2); color: var(--err); border: 1px solid var(--err); }
+    button { padding: 0.9rem; font-size: 1rem; font-weight: 500; border: none; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 0.6rem; background: var(--accent); color: #fff; transition: transform 0.1s; }
+    button:active { transform: scale(0.98); }
+    button:disabled { background: #475569; cursor: not-allowed; opacity: 0.7; }
+    button.stop { background: var(--err); }
+    #log { height: 220px; overflow-y: auto; background: #0b1120; color: #a3e635; padding: 1rem; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 0.85rem; margin-top: 1rem; border: 1px solid #334155; }
+    .log-time { color: #94a3b8; }
+    .log-info { color: #38bdf8; }
+    .log-success { color: var(--success); }
+    .log-error { color: var(--err); }
+    .footer { text-align: center; margin-top: 1.5rem; font-size: 0.8rem; color: #64748b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>🔌 Web BLE 电机控制终端</h2>
+    <div id="status" class="disconnected">⚪ 未连接设备</div>
+    <button id="connectBtn" onclick="connectToDevice()">🔍 扫描并连接 Vibration_Egg</button>
+    <button id="autoBtn" onclick="toggleAutoCycle()" disabled>⏯ 开启 10秒自动轮动测试</button>
+    <div id="log"></div>
+  </div>
+  <div class="footer">⚠️ 请使用 Chrome/Edge 浏览器，并在 HTTPS 或 localhost 环境下运行</div>
+
+  <script>
+    // 必须与 ESP32 代码完全一致
+    const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+    const CHAR_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+
+    let bleDevice = null;
+    let bleCharacteristic = null;
+    let autoCycleInterval = null;
+    let cycleIndex = 0;
+    const commands = ['0', '1', '2', '3']; // ASCII 字符，对应 高/中/低/停
+
+    const statusEl = document.getElementById('status');
+    const connectBtn = document.getElementById('connectBtn');
+    const autoBtn = document.getElementById('autoBtn');
+    const logEl = document.getElementById('log');
+
+    function log(msg, type = 'info') {
+      const time = new Date().toLocaleTimeString();
+      logEl.insertAdjacentHTML('afterbegin', `<div class="log-${type}"><span class="log-time">[${time}]</span> ${msg}</div>`);
+      console.log(`[WEB] ${msg}`);
+    }
+
+    if (!navigator.bluetooth) {
+      log('❌ 当前浏览器不支持 Web Bluetooth API。请使用 Chrome/Edge 并确保页面为 HTTPS 或 localhost。', 'error');
+      connectBtn.disabled = true;
+    }
+
+    async function connectToDevice() {
+      try {
+        log('🔍 正在请求蓝牙设备列表...');
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ name: 'Vibration_Egg' }],
+          optionalServices: [SERVICE_UUID]
+        });
+
+        log('📡 正在建立 GATT 连接...');
+        bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+        const server = await bleDevice.gatt.connect();
+
+        log('🔑 获取 Service 与 Characteristic...');
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        bleCharacteristic = await service.getCharacteristic(CHAR_UUID);
+
+        statusEl.textContent = '🟢 已连接至 Vibration_Egg';
+        statusEl.className = 'connected';
+        connectBtn.textContent = '🔌 已连接 (点击断开)';
+        connectBtn.onclick = disconnectDevice;
+        autoBtn.disabled = false;
+        log('✅ 握手成功！特征值已就绪，可下发指令。', 'success');
+
+      } catch (error) {
+        log(`❌ 连接中断: ${error.message}`, 'error');
+        statusEl.textContent = '⚪ 连接失败';
+      }
+    }
+
+    function disconnectDevice() {
+      if (bleDevice?.gatt.connected) bleDevice.gatt.disconnect();
+    }
+
+    function onDisconnected() {
+      statusEl.textContent = '⚪ 已断开连接';
+      statusEl.className = 'disconnected';
+      connectBtn.textContent = '🔍 扫描并连接 Vibration_Egg';
+      connectBtn.onclick = connectToDevice;
+      autoBtn.disabled = true;
+      stopAutoCycle();
+      bleCharacteristic = null;
+      log('🔌 设备已断开，等待重连。', 'info');
+    }
+
+    async function sendCommand(cmd) {
+      if (!bleCharacteristic) return log('❌ 未获取到特征值，无法发送', 'error');
+      try {
+        // 发送 ASCII 字节流，ESP32 端已兼容 ASCII 与原始字节
+        await bleCharacteristic.writeValue(new TextEncoder().encode(cmd));
+        log(`📤 下发指令: [${cmd}]`, 'success');
+      } catch (err) {
+        log(`❌ 写入失败: ${err.message}`, 'error');
+      }
+    }
+
+    function startAutoCycle() {
+      if (autoCycleInterval) return;
+      cycleIndex = 0;
+      log('🔄 启动 10秒自动轮动测试 (序列: 0→1→2→3)', 'info');
+      sendCommand(commands[cycleIndex]);
+      cycleIndex = (cycleIndex + 1) % commands.length;
+
+      autoCycleInterval = setInterval(() => {
+        sendCommand(commands[cycleIndex]);
+        cycleIndex = (cycleIndex + 1) % commands.length;
+      }, 10000);
+      
+      autoBtn.textContent = '⏹ 停止自动轮动';
+      autoBtn.className = 'stop';
+    }
+
+    function stopAutoCycle() {
+      if (autoCycleInterval) {
+        clearInterval(autoCycleInterval);
+        autoCycleInterval = null;
+        log('⏹ 自动轮动已停止', 'info');
+        autoBtn.textContent = '⏯ 开启 10秒自动轮动测试';
+        autoBtn.className = '';
+      }
+    }
+
+    function toggleAutoCycle() {
+      autoCycleInterval ? stopAutoCycle() : startAutoCycle();
+    }
+  </script>
+</body>
+</html>
