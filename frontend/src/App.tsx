@@ -6,7 +6,7 @@ import { useStore } from "./store.js";
 export default function App() {
   const page = useStore((s) => s.page);
   return (
-    <div className="min-h-screen h-screen bg-attrax-bg text-attrax-text">
+    <div className="min-h-screen h-screen">
       {(page === "login" || page === "terminated") && <Login />}
       {page === "bt_gate" && <BtGate />}
       {page === "chat" && <Chat />}

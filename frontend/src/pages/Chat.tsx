@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { ServerMsg } from "@attrax/shared";
+import type { Intensity, ServerMsg } from "@attrax/shared";
 import { BluetoothStatus } from "../components/BluetoothStatus.js";
 import { ChatBubble } from "../components/ChatBubble.js";
 import { IntensityViz } from "../components/IntensityViz.js";
@@ -7,6 +7,13 @@ import * as bt from "../lib/bluetooth.js";
 import type { BtStatus } from "../lib/bluetooth.js";
 import { connect, type WsHandle } from "../lib/ws.js";
 import { useStore } from "../store.js";
+
+const INTENSITY_BG: Record<Intensity, string> = {
+  0: "radial-gradient(ellipse 90% 60% at 50% 25%, #eef0f4 0%, #f6f7fa 60%, #ffffff 100%)",
+  1: "radial-gradient(ellipse 100% 60% at 50% 25%, #c4e2ec 0%, #dde9ee 45%, #f4f6f6 100%)",
+  2: "radial-gradient(ellipse 100% 60% at 50% 25%, #ffd3b4 0%, #ffe4d0 45%, #fff5ec 100%)",
+  3: "radial-gradient(ellipse 100% 60% at 50% 25%, #ff9c7e 0%, #ffc2ad 45%, #ffe1d4 100%)",
+};
 
 export function Chat() {
   const {
@@ -38,23 +45,15 @@ export function Chat() {
   const intensityRef = useRef(intensity);
   intensityRef.current = intensity;
 
-  // Apply intensity to hardware on every change (no-op when not connected)
   useEffect(() => {
     if (role !== "m") return;
     void bt.writeIntensity(intensity);
   }, [intensity, role]);
 
-  // S side: explicit offline. M side: BT was already paired in BtGate,
-  // so we do NOT re-trigger the chooser here. If M skipped via demo mode,
-  // status is already "offline".
   useEffect(() => {
     if (role === "s") bt.goOffline();
   }, [role]);
 
-  // M side: watch for mid-session BT interruption (GATT disconnected after
-  // being connected). Show pause overlay until user reconnects or exits.
-  // Also announce every status change to the server so S can display the
-  // peer's hardware state instead of its own (offline) state.
   useEffect(() => {
     if (role !== "m") return;
     let prev: BtStatus = bt.getStatus();
@@ -80,29 +79,22 @@ export function Chat() {
   async function handleBtReconnect() {
     setBtReconnecting(true);
     const result = await bt.connect();
-    if (result !== "connected") {
-      setBtReconnecting(false);
-    }
+    if (result !== "connected") setBtReconnecting(false);
   }
 
-  // WebSocket lifecycle
   useEffect(() => {
     if (!role || !code) return;
-
     const handle = connect({
       code,
       role,
-      safeWord: role === "m" ? safeWord : undefined,
+      safeWord: role === "m" ? safeWord : safeWord || undefined,
       onStatus: (status) => {
         if (status === "connecting") setConnection("waiting");
       },
       onMessage: (msg) => handleServerMessage(msg),
     });
     wsRef.current = handle;
-
-    return () => {
-      handle.close();
-    };
+    return () => handle.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -111,16 +103,15 @@ export function Chat() {
       case "room_ready":
         setConnection("ready");
         if (msg.safeWord && !safeWord) setSafeWord(msg.safeWord);
-        // M announces its current BT status on join so S's badge is accurate
         if (role === "m" && wsRef.current?.isOpen()) {
           wsRef.current.send({ type: "bt_status", status: bt.getStatus() });
         }
         return;
-      case "peer_bt_status":
-        setPeerBtStatus(msg.status);
-        return;
       case "room_waiting":
         setConnection("waiting");
+        return;
+      case "peer_bt_status":
+        setPeerBtStatus(msg.status);
         return;
       case "chat":
         appendMessage({
@@ -138,32 +129,25 @@ export function Chat() {
         terminate();
         void bt.writeIntensity(0);
         void bt.disconnect();
-        setTimeout(() => {
-          resetSession();
-        }, 2000);
+        setTimeout(() => resetSession(), 2000);
         return;
       case "peer_left":
         setTerminatedBanner({ visible: true, reason: "peer_left" });
         terminate();
         void bt.writeIntensity(0);
         void bt.disconnect();
-        setTimeout(() => {
-          resetSession();
-        }, 2000);
+        setTimeout(() => resetSession(), 2000);
         return;
       case "error":
         setConnection("disconnected");
         setTerminatedBanner({ visible: true, reason: "peer_left" });
-        setTimeout(() => {
-          resetSession();
-        }, 2000);
+        setTimeout(() => resetSession(), 2000);
         return;
       case "pong":
         return;
     }
   }
 
-  // Autoscroll
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -191,95 +175,92 @@ export function Chat() {
     return "连接中…";
   }, [connection]);
 
+  const sendDisabled =
+    connection !== "ready" || !input.trim() || btInterrupted;
+
   return (
-    <div className="min-h-full flex flex-col md:flex-row">
-      {/* Header */}
-      <div className="md:hidden px-4 py-3 flex items-center justify-between border-b border-white/5">
-        <div className="flex gap-4 text-xs">
-          <div>
-            <div className="text-attrax-muted">房间</div>
-            <div className="font-mono text-attrax-text">{code}</div>
-          </div>
-          <div>
-            <div className="text-attrax-muted">安全词</div>
-            <div className="font-mono text-attrax-text">{safeWord || "—"}</div>
-          </div>
+    <div
+      className="min-h-full flex flex-col md:flex-row relative text-attrax-chat-text"
+      style={{ background: INTENSITY_BG[intensity], transition: "background 700ms ease" }}
+    >
+      {/* ── Mobile header ── */}
+      <div className="md:hidden flex items-center justify-between px-4 py-3">
+        <button
+          onClick={handleLeave}
+          className="w-9 h-9 rounded-full bg-attrax-black text-white flex items-center justify-center text-lg"
+          aria-label="退出"
+        >
+          ×
+        </button>
+        <div className="inline-flex items-center gap-2 rounded-pill bg-attrax-bubble border border-attrax-bubble-border px-4 py-1.5 shadow-sm">
+          <span className="text-[11px] text-attrax-chat-muted">安全词</span>
+          <span className="text-sm font-medium">{safeWord || "—"}</span>
         </div>
-        <div className="flex items-center gap-2">
-          {role === "m" ? (
-            <BluetoothStatus />
-          ) : (
-            <BluetoothStatus status={peerBtStatus} peer />
-          )}
-          <button
-            onClick={handleLeave}
-            className="text-xs text-attrax-danger px-2 py-1 rounded-btn border border-attrax-danger/40"
-          >
-            退出
-          </button>
-        </div>
+        {role === "m" ? (
+          <BluetoothStatus />
+        ) : (
+          <BluetoothStatus status={peerBtStatus} peer />
+        )}
       </div>
 
-      <div className="md:hidden flex items-center justify-center py-4 border-b border-white/5 bg-attrax-panel/40">
+      {/* ── Mobile top dial ── */}
+      <div className="md:hidden flex flex-col items-center py-2">
         <IntensityViz intensity={intensity} compact />
       </div>
 
-      {/* Chat column */}
+      {/* ── Chat column ── */}
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="hidden md:flex items-center justify-between px-6 py-4 border-b border-white/5">
-          <div className="flex items-center gap-6">
-            <div className="text-sm">
-              <span className="text-attrax-muted mr-2">安全词</span>
-              <span className="font-mono">{safeWord || "—"}</span>
-            </div>
-            <div className="text-sm">
-              <span className="text-attrax-muted mr-2">房间</span>
-              <span className="font-mono">{code}</span>
-            </div>
-            <div className="text-sm">
-              <span className="text-attrax-muted mr-2">你是</span>
-              <span className="uppercase font-semibold">{role}</span>
-            </div>
-            <div className="text-sm text-attrax-muted">{statusText}</div>
-          </div>
+        {/* Desktop header */}
+        <div className="hidden md:flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            {role === "m" ? (
-            <BluetoothStatus />
-          ) : (
-            <BluetoothStatus status={peerBtStatus} peer />
-          )}
             <button
               onClick={handleLeave}
-              className="text-xs text-attrax-danger px-3 py-1.5 rounded-btn border border-attrax-danger/40 hover:bg-attrax-danger/10"
+              className="w-9 h-9 rounded-full bg-attrax-black text-white flex items-center justify-center"
+              aria-label="退出"
             >
-              退出
+              ×
             </button>
+            <div className="inline-flex items-center gap-2 rounded-pill bg-attrax-bubble border border-attrax-bubble-border px-4 py-1.5 shadow-sm">
+              <span className="text-[11px] text-attrax-chat-muted">安全词</span>
+              <span className="text-sm font-medium">{safeWord || "—"}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-attrax-chat-muted">
+            <span>
+              房间 <span className="font-mono text-attrax-chat-text">{code}</span>
+            </span>
+            <span>·</span>
+            <span>
+              你是 <span className="uppercase text-attrax-chat-text font-semibold">{role}</span>
+            </span>
+            <span>·</span>
+            <span>{statusText}</span>
+            {role === "m" ? (
+              <BluetoothStatus />
+            ) : (
+              <BluetoothStatus status={peerBtStatus} peer />
+            )}
           </div>
         </div>
 
+        {/* Message list */}
         <div
           ref={scrollRef}
-          className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-3"
+          className="flex-1 overflow-y-auto px-4 md:px-8 py-4 space-y-3"
         >
           {messages.length === 0 && connection === "waiting" && (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <div className="text-xs text-attrax-muted">把下面的房间号发给对方</div>
-              <div className="font-mono text-3xl tracking-[0.3em] bg-attrax-grad bg-clip-text text-transparent">
+            <div className="flex flex-col items-center gap-3 py-10">
+              <div className="text-xs text-attrax-chat-muted tracking-wider">
+                把下面的房间号发给对方
+              </div>
+              <div className="font-mono text-4xl tracking-[0.3em] text-attrax-chat-text">
                 {code}
               </div>
-              <div className="text-sm text-attrax-muted">等待对方加入…</div>
-              {safeWord && (
-                <div className="text-xs text-attrax-muted">
-                  当前安全词：
-                  <span className="font-mono text-attrax-text ml-1">
-                    {safeWord}
-                  </span>
-                </div>
-              )}
+              <div className="text-sm text-attrax-chat-muted">等待对方加入…</div>
             </div>
           )}
           {messages.length === 0 && connection === "ready" && (
-            <div className="text-center text-attrax-muted text-sm py-8">
+            <div className="text-center text-attrax-chat-muted text-sm py-10">
               开始聊天吧。S 的消息会驱动档位变化。
             </div>
           )}
@@ -288,48 +269,56 @@ export function Chat() {
           ))}
         </div>
 
-        <div className="px-4 md:px-6 py-3 border-t border-white/5 flex gap-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                send();
+        {/* Input bar */}
+        <div className="px-4 md:px-8 py-4 flex items-center gap-3">
+          <div
+            className={`flex-1 rounded-pill bg-attrax-black flex items-center px-5 py-3 transition ${
+              sendDisabled && !input ? "opacity-80" : ""
+            }`}
+          >
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              disabled={connection !== "ready" || btInterrupted}
+              placeholder={
+                btInterrupted
+                  ? "硬件已断开,请重连"
+                  : connection === "ready"
+                  ? "输入消息…"
+                  : "等待连接…"
               }
-            }}
-            disabled={connection !== "ready" || btInterrupted}
-            placeholder={
-              btInterrupted
-                ? "硬件已断开,请重连"
-                : connection === "ready"
-                ? "输入消息…"
-                : "等待连接…"
-            }
-            className="flex-1 bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 focus:border-attrax-accent outline-none disabled:opacity-40"
-            maxLength={200}
-          />
+              className="flex-1 bg-transparent text-white placeholder-white/40 outline-none text-sm"
+              maxLength={200}
+            />
+          </div>
           <button
             onClick={send}
-            disabled={connection !== "ready" || !input.trim() || btInterrupted}
-            className="px-6 rounded-btn bg-attrax-grad text-white font-medium disabled:opacity-40"
+            disabled={sendDisabled}
+            className="w-12 h-12 rounded-full bg-attrax-accent text-white flex items-center justify-center text-xl disabled:opacity-30 hover:bg-attrax-accent-dark transition shadow-md shadow-attrax-accent/30"
+            aria-label="发送"
           >
-            发送
+            ↑
           </button>
         </div>
       </div>
 
-      {/* Desktop viz panel */}
-      <div className="hidden md:flex w-80 border-l border-white/5 bg-attrax-panel/30 items-center justify-center">
+      {/* ── Desktop right panel ── */}
+      <div className="hidden md:flex w-80 items-center justify-center">
         <IntensityViz intensity={intensity} />
       </div>
 
-      {/* BT interrupted overlay (M side only, non-demo) */}
+      {/* BT interrupted overlay */}
       {btInterrupted && !terminatedBanner.visible && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-40 p-6">
-          <div className="bg-attrax-panel border border-attrax-danger/50 rounded-card p-8 max-w-sm w-full text-center space-y-4">
-            <div className="text-2xl">蓝牙已断开</div>
-            <div className="text-sm text-attrax-muted">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-40 p-6">
+          <div className="bg-white text-attrax-chat-text border border-attrax-danger/30 rounded-card p-8 max-w-sm w-full text-center space-y-5 shadow-2xl">
+            <div className="text-xl font-semibold">蓝牙已断开</div>
+            <div className="text-sm text-attrax-chat-muted">
               硬件跳蛋的连接丢失。聊天已暂停。
               <br />
               请重新连接硬件或退出会话。
@@ -337,13 +326,13 @@ export function Chat() {
             <button
               onClick={handleBtReconnect}
               disabled={btReconnecting}
-              className="w-full py-3 rounded-btn bg-attrax-grad text-white font-medium disabled:opacity-50"
+              className="w-full py-3 rounded-pill bg-attrax-accent text-white font-medium disabled:opacity-50 hover:bg-attrax-accent-dark"
             >
               {btReconnecting ? "连接中…" : "重新连接硬件"}
             </button>
             <button
               onClick={handleLeave}
-              className="w-full py-2 text-sm text-attrax-danger border border-attrax-danger/40 rounded-btn hover:bg-attrax-danger/10"
+              className="w-full py-2 text-sm text-attrax-danger border border-attrax-danger/40 rounded-pill hover:bg-attrax-danger/10"
             >
               退出会话
             </button>
@@ -353,14 +342,14 @@ export function Chat() {
 
       {/* Terminated overlay */}
       {terminatedBanner.visible && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-attrax-panel border border-white/10 rounded-card p-8 max-w-sm text-center">
-            <div className="text-2xl mb-2">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+          <div className="bg-white text-attrax-chat-text rounded-card p-8 max-w-sm w-full text-center shadow-2xl">
+            <div className="text-xl font-semibold mb-2">
               {terminatedBanner.reason === "safe_word"
                 ? "会话已安全终止"
                 : "对方已离开"}
             </div>
-            <div className="text-sm text-attrax-muted">
+            <div className="text-sm text-attrax-chat-muted">
               2 秒后返回登入页…
             </div>
           </div>

@@ -5,13 +5,23 @@ export default {
     extend: {
       colors: {
         attrax: {
-          bg: "#0a0a0f",
-          panel: "#15151f",
-          text: "#f5f5fa",
-          muted: "#8e8ea6",
-          accent: "#b84cff",
-          accent2: "#ff4c8c",
-          danger: "#ff4c5c",
+          // Control-screen palette (Login, BtGate)
+          black: "#0a0a0a",
+          panel: "#1a1a1a",
+          "panel-soft": "#2a2a2a",
+          // Accent
+          accent: "#f07a3a",
+          "accent-dark": "#d65f21",
+          // Chat-screen palette
+          chat: "#f6f7fa",
+          "chat-text": "#1a1a1a",
+          "chat-muted": "#8e8e93",
+          bubble: "#ffffff",
+          "bubble-border": "rgba(0,0,0,0.05)",
+          // Semantic
+          danger: "#ef4444",
+          warn: "#f59e0b",
+          ok: "#22c55e",
         },
       },
       fontFamily: {
@@ -24,13 +34,14 @@ export default {
           "sans-serif",
         ],
       },
-      backgroundImage: {
-        "attrax-grad": "linear-gradient(135deg, #b84cff 0%, #ff4c8c 100%)",
-      },
       borderRadius: {
-        card: "12px",
-        btn: "8px",
-        bubble: "24px",
+        pill: "999px",
+        card: "24px",
+        tile: "20px",
+      },
+      backgroundImage: {
+        "splash-grad":
+          "radial-gradient(ellipse 80% 60% at 50% 50%, #e4a0f0 0%, #f5a8b6 45%, #f5b58a 100%)",
       },
     },
   },

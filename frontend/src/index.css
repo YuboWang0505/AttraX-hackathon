@@ -9,8 +9,8 @@ body,
 }
 
 body {
-  background-color: #0a0a0f;
-  color: #f5f5fa;
+  background-color: #0a0a0a;
+  color: #ffffff;
   font-family:
     system-ui,
     -apple-system,
@@ -19,10 +19,37 @@ body {
     "Microsoft YaHei",
     sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Prevent iOS text-input zoom */
 input,
 textarea {
   font-size: 16px;
+}
+
+/* iMessage-style bubble tail via pseudo element */
+.bubble-tail-left::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  background: inherit;
+  border-bottom-right-radius: 12px;
+  z-index: -1;
+  transform: skew(-10deg) rotate(-8deg);
+}
+
+.bubble-tail-right::after {
+  content: "";
+  position: absolute;
+  right: -4px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  background: inherit;
+  border-bottom-left-radius: 12px;
+  z-index: -1;
+  transform: skew(10deg) rotate(8deg);
 }
