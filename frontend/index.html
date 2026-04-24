@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0a0f" />
+    <!-- simple-peer's randombytes dep reads `global.crypto` at module-top
+         level. Vite's define + nodePolyfills didn't rewrite this in the
+         pre-bundled output (see REFACTOR notes). Inject a runtime alias
+         before any module script so the bare `global` identifier resolves
+         to the window object. -->
+    <script>window.global = window;</script>
     <title>AttraX</title>
   </head>
   <body>

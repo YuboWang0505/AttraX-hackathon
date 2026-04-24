@@ -300,6 +300,54 @@ async function handleMessage(room: Room, role: Role, msg: ClientMsg): Promise<vo
       return;
     }
 
+    case "rtc_offer": {
+      sendJson(peerOf(room, role), { type: "peer_rtc_offer", sdp: msg.sdp });
+      return;
+    }
+
+    case "rtc_answer": {
+      sendJson(peerOf(room, role), { type: "peer_rtc_answer", sdp: msg.sdp });
+      return;
+    }
+
+    case "rtc_ice": {
+      sendJson(peerOf(room, role), {
+        type: "peer_rtc_ice",
+        candidate: msg.candidate,
+      });
+      return;
+    }
+
+    case "rtc_hangup": {
+      sendJson(peerOf(room, role), { type: "peer_rtc_hangup" });
+      return;
+    }
+
+    case "emergency_stop": {
+      // Big red button: same termination path as a typed safe word, but
+      // bypasses STT / LLM entirely so it works even if the pipeline is
+      // wedged or the user can't speak clearly.
+      const broadcast: ServerMsg = { type: "safe_word_triggered", by: role };
+      sendJson(room.sWs, broadcast);
+      sendJson(room.mWs, broadcast);
+      if (room.sWs && room.sWs.readyState === room.sWs.OPEN) {
+        try {
+          room.sWs.close();
+        } catch {
+          // ignore
+        }
+      }
+      if (room.mWs && room.mWs.readyState === room.mWs.OPEN) {
+        try {
+          room.mWs.close();
+        } catch {
+          // ignore
+        }
+      }
+      closeRoom(room.code);
+      return;
+    }
+
     case "chat": {
       if (!bothReady(room)) return;
       // Assign seq_id synchronously BEFORE any await — preserves send order.

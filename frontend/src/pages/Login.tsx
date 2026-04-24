@@ -57,7 +57,7 @@ export function Login() {
           AttraX
         </h1>
         <p className="text-center text-ink-500 text-sm mt-1">
-          远程互动 · 脱机演示模式
+          远程互动体验
         </p>
 
         <div className="mt-8 space-y-6">
