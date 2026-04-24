@@ -21,22 +21,20 @@ export function ChatBubble({ message, self }: Props) {
     >
       <div className="max-w-[78%]">
         <div
-          className={`relative px-5 py-3 rounded-[22px] text-sm leading-relaxed break-words shadow-sm ${
+          className={`px-4 py-2 rounded-bubble text-sm leading-relaxed break-words ${
             mine
-              ? "bg-attrax-black text-white bubble-tail-right"
-              : "bg-attrax-bubble text-attrax-chat-text border border-attrax-bubble-border bubble-tail-left"
+              ? "bg-attrax-grad text-white"
+              : "bg-attrax-panel text-attrax-text border border-white/5"
           }`}
         >
           {message.text}
         </div>
         <div
-          className={`mt-1 px-2 text-[10px] text-attrax-chat-muted flex gap-2 ${mine ? "justify-end" : "justify-start"}`}
+          className={`mt-1 text-[10px] text-attrax-muted flex gap-2 ${mine ? "justify-end" : "justify-start"}`}
         >
           <span>{formatTime(message.timestamp)}</span>
           {message.from === "s" && message.intensity > 0 && (
-            <span className="text-attrax-accent font-medium">
-              → {message.intensity} 档
-            </span>
+            <span className="text-attrax-accent">→ {message.intensity} 档</span>
           )}
         </div>
       </div>

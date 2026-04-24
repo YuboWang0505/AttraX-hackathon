@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import type { Role } from "@attrax/shared";
 import { useStore } from "../store.js";
 
@@ -9,30 +9,23 @@ export function Login() {
   const [code, setCode] = useState("");
   const [safeWord, setSafeWord] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const codeInputRef = useRef<HTMLInputElement | null>(null);
 
   const store = useStore();
 
   const canSubmit =
     role !== null &&
     (code === "" || /^\d{6}$/.test(code)) &&
-    safeWord.length <= 16 &&
-    !submitting;
+    safeWord.length <= 16;
 
-  async function handleGenerate() {
-    try {
-      const resp = await fetch("/api/room", { method: "POST" });
-      const data: { code: string } = await resp.json();
-      setCode(data.code);
-    } catch {
-      setError("生成 code 失败,请手动输入");
-    }
+  function handleGenerate() {
+    fetch("/api/room", { method: "POST" })
+      .then((r) => r.json())
+      .then((d: { code: string }) => setCode(d.code))
+      .catch(() => setError("生成 code 失败，请手动输入"));
   }
 
   async function handleSubmit() {
     if (!role) return;
-    setSubmitting(true);
     let finalCode = code;
     if (!finalCode) {
       try {
@@ -41,141 +34,107 @@ export function Login() {
         finalCode = data.code;
         setCode(finalCode);
       } catch {
-        setError("创建房间失败,请检查后端是否运行");
-        setSubmitting(false);
+        setError("创建房间失败，请检查后端是否运行");
         return;
       }
     }
     if (!/^\d{6}$/.test(finalCode)) {
       setError("code 必须为 6 位数字");
-      setSubmitting(false);
       return;
     }
     store.setRole(role);
     store.setCode(finalCode);
     store.setSafeWord(safeWord);
     store.setDemoMode(false);
+    // M must pair BT before entering chat; S skips the gate.
     store.setPage(role === "m" ? "bt_gate" : "chat");
   }
 
-  const focusCode = () => codeInputRef.current?.focus();
-
   return (
-    <div className="min-h-full bg-attrax-black text-white flex flex-col items-center px-6 pt-12 pb-8">
-      <div className="w-full max-w-md flex-1 flex flex-col">
-        <div className="mb-10 text-center">
-          <div className="text-xs tracking-[0.3em] text-white/40 uppercase">
-            AttraX
-          </div>
-          <h1 className="mt-2 text-4xl font-semibold tracking-wider">
-            YOUR CODE
-          </h1>
-          <button
-            onClick={handleGenerate}
-            className="mt-3 text-xs tracking-[0.2em] text-white/40 hover:text-white/70 transition"
-          >
-            随机生成 ↻
-          </button>
-        </div>
-
-        {/* 6 pill digit boxes + invisible input capturing keyboard */}
-        <div className="relative" onClick={focusCode}>
-          <div className="grid grid-cols-6 gap-2">
-            {Array.from({ length: CODE_LEN }, (_, i) => {
-              const ch = code[i];
-              return (
-                <div
-                  key={i}
-                  className={`aspect-[3/4] rounded-tile flex items-center justify-center text-2xl font-semibold transition ${
-                    ch
-                      ? "bg-white text-black"
-                      : "bg-white/10 text-white/40 border border-white/10"
-                  }`}
-                >
-                  {ch ?? ""}
-                </div>
-              );
-            })}
-          </div>
-          <input
-            ref={codeInputRef}
-            type="tel"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            maxLength={CODE_LEN}
-            value={code}
-            onChange={(e) =>
-              setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LEN))
-            }
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            aria-label="输入 6 位数字 code,或留空自动创建"
-          />
-        </div>
-
-        <p className="mt-2 text-[11px] text-center text-white/30">
-          留空 + 下一步 = 创建新房间
+    <div className="min-h-full flex items-center justify-center p-6">
+      <div className="w-full max-w-md bg-attrax-panel rounded-card p-8 border border-white/5 shadow-xl">
+        <h1 className="text-center text-3xl font-semibold tracking-wide bg-attrax-grad bg-clip-text text-transparent">
+          AttraX
+        </h1>
+        <p className="text-center text-attrax-muted text-sm mt-1">
+          远程互动 · 脱机演示模式
         </p>
 
-        {/* S/M segmented toggle */}
-        <div className="mt-10 flex justify-center">
-          <div className="relative inline-flex bg-white/10 rounded-pill p-1 w-48">
-            <div
-              className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-pill bg-white transition-all duration-200 ${
-                role === "m" ? "left-[calc(50%+0px)]" : "left-1"
-              } ${role === null ? "opacity-0" : "opacity-100"}`}
-            />
-            {(["s", "m"] as Role[]).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRole(r)}
-                className={`relative flex-1 py-2 text-sm font-semibold uppercase tracking-wider transition-colors z-10 ${
-                  role === r ? "text-black" : "text-white/60"
-                }`}
-              >
-                {r}
-              </button>
-            ))}
+        <div className="mt-8 space-y-6">
+          <div>
+            <label className="block text-xs text-attrax-muted mb-2">角色</label>
+            <div className="grid grid-cols-2 gap-3">
+              {(["s", "m"] as Role[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRole(r)}
+                  className={`py-4 rounded-btn border transition ${
+                    role === r
+                      ? "bg-attrax-grad border-transparent text-white"
+                      : "bg-transparent border-white/10 text-attrax-text hover:border-white/30"
+                  }`}
+                >
+                  <div className="text-lg font-semibold">{r.toUpperCase()}</div>
+                  <div className="text-xs opacity-80 mt-1">
+                    {r === "s" ? "支配方 · 发消息" : "被支配方 · 佩戴硬件"}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* safe word input */}
-        <div className="mt-8">
-          <input
-            type="text"
-            maxLength={16}
-            value={safeWord}
-            onChange={(e) => setSafeWord(e.target.value)}
-            placeholder="安全词 (留空默认 安全词)"
-            className="w-full bg-white/10 border border-white/10 rounded-pill px-5 py-3 text-sm placeholder-white/30 focus:border-attrax-accent outline-none"
-          />
-          <p className="mt-2 text-[11px] text-center text-white/30">
-            任一方说出安全词会话立即终止 · 以先进入者设置为准
-          </p>
-        </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-attrax-muted">房间 Code (6 位数字)</label>
+              <button
+                onClick={handleGenerate}
+                className="text-xs text-attrax-accent hover:underline"
+              >
+                生成随机 code
+              </button>
+            </div>
+            <input
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={CODE_LEN}
+              value={code}
+              onChange={(e) =>
+                setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LEN))
+              }
+              placeholder="留空 + 创建 或 输入对方已有 code"
+              className="w-full bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 text-center text-xl font-mono tracking-[0.5em] focus:border-attrax-accent outline-none"
+            />
+          </div>
 
-        {error && (
-          <p className="mt-4 text-xs text-center text-attrax-danger">{error}</p>
-        )}
+          <div>
+            <label className="block text-xs text-attrax-muted mb-2">
+              安全词（留空使用默认 "安全词"）
+            </label>
+            <input
+              type="text"
+              maxLength={16}
+              value={safeWord}
+              onChange={(e) => setSafeWord(e.target.value)}
+              placeholder="安全词"
+              className="w-full bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 focus:border-attrax-accent outline-none"
+            />
+            <p className="text-[11px] text-attrax-muted mt-1">
+              任一方说出安全词，会话立即安全终止。以先进入房间方设置的为准。
+            </p>
+          </div>
 
-        <div className="flex-1" />
+          {error && (
+            <p className="text-xs text-attrax-danger">{error}</p>
+          )}
 
-        {/* submit button */}
-        <div className="flex justify-center mt-8">
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="w-16 h-16 rounded-full bg-attrax-accent text-white flex items-center justify-center text-2xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-attrax-accent-dark transition shadow-lg shadow-attrax-accent/30"
-            aria-label="下一步"
+            className="w-full py-3 rounded-btn bg-attrax-grad text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            →
+            {code ? "加入房间" : "创建房间"}
           </button>
         </div>
-
-        {role && (
-          <p className="mt-3 text-[11px] text-center text-white/30">
-            {role === "s" ? "你将作为支配方进入聊天" : "下一步将连接硬件"}
-          </p>
-        )}
       </div>
     </div>
   );

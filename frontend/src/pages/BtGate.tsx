@@ -3,28 +3,13 @@ import * as bt from "../lib/bluetooth.js";
 import type { BtStatus } from "../lib/bluetooth.js";
 import { useStore } from "../store.js";
 
-const STATUS_COPY: Record<BtStatus, string> = {
-  idle: "未连接",
-  connecting: "正在打开浮层,请选择 Vibration_Egg",
-  connected: "✓ 硬件已连接,即将进入聊天…",
-  offline: "脱机演示模式",
-  error: "连接失败或已取消,请重试",
-};
-
-const STATUS_DOT: Record<BtStatus, string> = {
-  idle: "bg-white/30",
-  connecting: "bg-attrax-warn animate-pulse",
-  connected: "bg-attrax-ok",
-  offline: "bg-attrax-accent",
-  error: "bg-attrax-danger",
-};
-
 export function BtGate() {
   const { code, safeWord, setPage, setDemoMode, resetSession } = useStore();
   const [status, setStatus] = useState<BtStatus>(bt.getStatus());
 
   useEffect(() => bt.subscribe(setStatus), []);
 
+  // Auto-advance once BT is connected
   useEffect(() => {
     if (status === "connected") {
       const t = setTimeout(() => setPage("chat"), 900);
@@ -33,100 +18,129 @@ export function BtGate() {
     return;
   }, [status, setPage]);
 
-  const supports = bt.supportsWebBluetooth();
   const connecting = status === "connecting";
   const connected = status === "connected";
   const failed = status === "error";
+  const supports = bt.supportsWebBluetooth();
+
+  async function handleConnect() {
+    await bt.connect();
+  }
+
+  function handleDemoSkip() {
+    bt.goOffline();
+    setDemoMode(true);
+    setPage("chat");
+  }
+
+  function handleBack() {
+    resetSession();
+  }
 
   return (
-    <div className="min-h-full bg-attrax-black text-white flex flex-col items-center px-6 pt-8 pb-10">
-      <div className="w-full max-w-md flex-1 flex flex-col">
-        {/* top bar */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={resetSession}
-            className="w-9 h-9 rounded-full bg-white/5 flex items-center justify-center text-white/60 hover:bg-white/10"
-            aria-label="返回登入"
-          >
-            ←
-          </button>
-          <div className="text-[10px] tracking-[0.3em] text-white/30">
-            房间 {code}
+    <div className="min-h-full flex items-center justify-center p-6">
+      <div className="w-full max-w-md bg-attrax-panel rounded-card p-8 border border-white/5 shadow-xl space-y-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold tracking-wide bg-attrax-grad bg-clip-text text-transparent">
+            房间已就绪
+          </h1>
+          <div className="mt-4 font-mono text-4xl tracking-[0.3em] text-attrax-text">
+            {code}
           </div>
+          <div className="mt-2 text-xs text-attrax-muted">
+            把 code 发给对方加入房间
+          </div>
+          {safeWord && (
+            <div className="mt-3 text-xs text-attrax-muted">
+              当前安全词：
+              <span className="font-mono text-attrax-text ml-1">{safeWord}</span>
+            </div>
+          )}
         </div>
 
-        {/* hero title */}
-        <div className="mt-16 text-center">
-          <h1 className="text-4xl font-semibold tracking-wider">BLUETOOTH</h1>
-          <p className="mt-2 text-sm text-white/50">查找你的硬件跳蛋</p>
-        </div>
+        <div className="border-t border-white/10" />
 
-        {/* checklist */}
-        <div className="mt-10 bg-white/5 border border-white/10 rounded-card p-5 text-xs text-white/60 space-y-2">
-          <div className="flex gap-2">
-            <span className="text-attrax-accent">•</span>
-            <span>打开硬件电源,LED 指示应处于广播状态</span>
-          </div>
-          <div className="flex gap-2">
-            <span className="text-attrax-accent">•</span>
-            <span>
-              确认广播名为{" "}
-              <span className="font-mono text-white">Vibration_Egg</span>
-            </span>
-          </div>
-          <div className="flex gap-2">
-            <span className="text-attrax-accent">•</span>
-            <span>点下方按钮,在 Chrome 浮层里选设备后点 "配对"</span>
-          </div>
+        <div>
+          <h2 className="text-sm font-medium text-attrax-text mb-2">
+            连接你的硬件跳蛋
+          </h2>
+          <ul className="text-xs text-attrax-muted space-y-1 list-disc pl-5">
+            <li>开启硬件电源，确保 LED 指示在广播状态</li>
+            <li>确认广播名为 <span className="font-mono">Vibration_Egg</span></li>
+            <li>
+              点下方按钮，在 Chrome 浮层里选择设备后点 "配对"
+            </li>
+          </ul>
         </div>
 
         {!supports && (
-          <div className="mt-4 text-xs text-attrax-danger border border-attrax-danger/40 rounded-tile p-3 bg-attrax-danger/10">
-            当前浏览器不支持 Web Bluetooth(需 Chrome / Edge 108+ 且 HTTPS 或
-            localhost)。请换浏览器或切演示模式。
+          <div className="text-xs text-attrax-danger border border-attrax-danger/40 rounded-btn p-3">
+            当前浏览器不支持 Web Bluetooth（需 Chrome / Edge 108+ 且
+            HTTPS 或 localhost）。请换浏览器或用演示模式。
           </div>
         )}
 
-        <div className="flex-1" />
+        <button
+          onClick={handleConnect}
+          disabled={!supports || connecting || connected}
+          className={`w-full py-3 rounded-btn font-medium transition ${
+            connected
+              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/60"
+              : failed
+              ? "bg-attrax-danger/80 text-white"
+              : "bg-attrax-grad text-white"
+          } disabled:opacity-60 disabled:cursor-not-allowed`}
+        >
+          {connected && "✓ 硬件已连接,即将进入聊天…"}
+          {connecting && "连接中… 请在浮层中选择设备"}
+          {failed && "重试连接"}
+          {status === "idle" && "连接蓝牙设备"}
+          {status === "offline" && "连接蓝牙设备"}
+        </button>
 
-        {/* status line */}
-        <div className="flex items-center justify-center gap-2 text-xs text-white/70 mb-6">
-          <span className={`inline-block w-2 h-2 rounded-full ${STATUS_DOT[status]}`} />
-          <span>{STATUS_COPY[status]}</span>
-        </div>
-
-        {/* orange CTA */}
-        <div className="flex justify-center">
-          <button
-            onClick={() => bt.connect()}
-            disabled={!supports || connecting || connected}
-            className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl transition shadow-lg ${
+        <div className="text-xs text-center">
+          <span
+            className={`inline-flex items-center gap-2 ${
               connected
-                ? "bg-attrax-ok text-white shadow-attrax-ok/30"
+                ? "text-emerald-300"
                 : failed
-                ? "bg-attrax-danger text-white shadow-attrax-danger/30"
-                : "bg-attrax-accent text-white shadow-attrax-accent/30 hover:bg-attrax-accent-dark"
-            } disabled:opacity-50 disabled:cursor-not-allowed`}
-            aria-label={failed ? "重试连接" : "连接蓝牙"}
+                ? "text-attrax-danger"
+                : "text-attrax-muted"
+            }`}
           >
-            {connected ? "✓" : connecting ? "…" : "→"}
-          </button>
+            <span
+              className={`inline-block w-2 h-2 rounded-full ${
+                connected
+                  ? "bg-emerald-500"
+                  : connecting
+                  ? "bg-yellow-500 animate-pulse"
+                  : failed
+                  ? "bg-attrax-danger"
+                  : "bg-attrax-muted"
+              }`}
+            />
+            {connected && "已连硬件"}
+            {connecting && "连接中…"}
+            {failed && "连接失败,请检查硬件后重试"}
+            {status === "idle" && "未连接"}
+            {status === "offline" && "演示模式"}
+          </span>
         </div>
 
-        <div className="mt-5 flex items-center justify-between text-[11px] text-white/30">
-          <span>
-            安全词{" "}
-            <span className="font-mono text-white/60">{safeWord || "安全词"}</span>
-          </span>
+        <div className="border-t border-white/10" />
+
+        <div className="flex items-center justify-between text-[11px] text-attrax-muted">
           <button
-            onClick={() => {
-              bt.goOffline();
-              setDemoMode(true);
-              setPage("chat");
-            }}
+            onClick={handleBack}
+            className="hover:text-attrax-text transition"
+          >
+            ← 返回登入
+          </button>
+          <button
+            onClick={handleDemoSkip}
             className="hover:text-attrax-accent transition underline underline-offset-2"
           >
-            没有硬件?演示模式
+            没有硬件?切到演示模式
           </button>
         </div>
       </div>
