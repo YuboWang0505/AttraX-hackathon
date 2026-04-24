@@ -1,7 +1,7 @@
 import type { IntentCode, Intensity, Role } from "@attrax/shared";
 import { create } from "zustand";
 
-export type Page = "login" | "chat" | "terminated";
+export type Page = "login" | "bt_gate" | "chat" | "terminated";
 
 export interface ChatMessage {
   id: string;
@@ -25,6 +25,8 @@ interface AppState {
   role: Role | null;
   code: string;
   safeWord: string;
+  /** True when the user explicitly skipped BT pairing via "演示模式". */
+  demoMode: boolean;
   connection: ConnectionStatus;
   messages: ChatMessage[];
   intensity: Intensity;
@@ -34,6 +36,7 @@ interface AppState {
   setRole: (r: Role) => void;
   setCode: (c: string) => void;
   setSafeWord: (w: string) => void;
+  setDemoMode: (v: boolean) => void;
   setConnection: (s: ConnectionStatus) => void;
 
   appendMessage: (m: ChatMessage) => void;
@@ -46,6 +49,7 @@ export const useStore = create<AppState>((set) => ({
   role: null,
   code: "",
   safeWord: "",
+  demoMode: false,
   connection: "idle",
   messages: [],
   intensity: 0,
@@ -55,6 +59,7 @@ export const useStore = create<AppState>((set) => ({
   setRole: (role) => set({ role }),
   setCode: (code) => set({ code }),
   setSafeWord: (safeWord) => set({ safeWord }),
+  setDemoMode: (demoMode) => set({ demoMode }),
   setConnection: (connection) => set({ connection }),
 
   appendMessage: (m) =>
@@ -79,6 +84,7 @@ export const useStore = create<AppState>((set) => ({
       role: null,
       code: "",
       safeWord: "",
+      demoMode: false,
       connection: "idle",
       messages: [],
       intensity: 0,

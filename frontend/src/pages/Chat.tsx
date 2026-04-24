@@ -4,6 +4,7 @@ import { BluetoothStatus } from "../components/BluetoothStatus.js";
 import { ChatBubble } from "../components/ChatBubble.js";
 import { IntensityViz } from "../components/IntensityViz.js";
 import * as bt from "../lib/bluetooth.js";
+import type { BtStatus } from "../lib/bluetooth.js";
 import { connect, type WsHandle } from "../lib/ws.js";
 import { useStore } from "../store.js";
 
@@ -14,6 +15,7 @@ export function Chat() {
     safeWord,
     messages,
     intensity,
+    demoMode,
     connection,
     setConnection,
     appendMessage,
@@ -27,24 +29,54 @@ export function Chat() {
     visible: boolean;
     reason: "safe_word" | "peer_left" | null;
   }>({ visible: false, reason: null });
+  const [btInterrupted, setBtInterrupted] = useState(false);
+  const [btReconnecting, setBtReconnecting] = useState(false);
 
   const wsRef = useRef<WsHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const intensityRef = useRef(intensity);
+  intensityRef.current = intensity;
 
-  // Apply intensity to hardware on every change (no-op in offline mode)
+  // Apply intensity to hardware on every change (no-op when not connected)
   useEffect(() => {
     if (role !== "m") return;
     void bt.writeIntensity(intensity);
   }, [intensity, role]);
 
-  // BT: M triggers chooser; S goes straight to offline mode
+  // S side: explicit offline. M side: BT was already paired in BtGate,
+  // so we do NOT re-trigger the chooser here. If M skipped via demo mode,
+  // status is already "offline".
   useEffect(() => {
-    if (role === "m") {
-      void bt.connect();
-    } else {
-      bt.goOffline();
-    }
+    if (role === "s") bt.goOffline();
   }, [role]);
+
+  // M side: watch for mid-session BT interruption (GATT disconnected after
+  // being connected). Show pause overlay until user reconnects or exits.
+  useEffect(() => {
+    if (role !== "m" || demoMode) return;
+    let prev: BtStatus = bt.getStatus();
+    const unsub = bt.subscribe((next) => {
+      if (prev === "connected" && next !== "connected") {
+        setBtInterrupted(true);
+      }
+      if (next === "connected" && prev !== "connected") {
+        setBtInterrupted(false);
+        setBtReconnecting(false);
+        // Resume motor at the last intensity value after reconnect
+        void bt.writeIntensity(intensityRef.current);
+      }
+      prev = next;
+    });
+    return unsub;
+  }, [role, demoMode]);
+
+  async function handleBtReconnect() {
+    setBtReconnecting(true);
+    const result = await bt.connect();
+    if (result !== "connected") {
+      setBtReconnecting(false);
+    }
+  }
 
   // WebSocket lifecycle
   useEffect(() => {
@@ -244,16 +276,20 @@ export function Chat() {
                 send();
               }
             }}
-            disabled={connection !== "ready"}
+            disabled={connection !== "ready" || btInterrupted}
             placeholder={
-              connection === "ready" ? "输入消息…" : "等待连接…"
+              btInterrupted
+                ? "硬件已断开,请重连"
+                : connection === "ready"
+                ? "输入消息…"
+                : "等待连接…"
             }
             className="flex-1 bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 focus:border-attrax-accent outline-none disabled:opacity-40"
             maxLength={200}
           />
           <button
             onClick={send}
-            disabled={connection !== "ready" || !input.trim()}
+            disabled={connection !== "ready" || !input.trim() || btInterrupted}
             className="px-6 rounded-btn bg-attrax-grad text-white font-medium disabled:opacity-40"
           >
             发送
@@ -265,6 +301,33 @@ export function Chat() {
       <div className="hidden md:flex w-80 border-l border-white/5 bg-attrax-panel/30 items-center justify-center">
         <IntensityViz intensity={intensity} />
       </div>
+
+      {/* BT interrupted overlay (M side only, non-demo) */}
+      {btInterrupted && !terminatedBanner.visible && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-40 p-6">
+          <div className="bg-attrax-panel border border-attrax-danger/50 rounded-card p-8 max-w-sm w-full text-center space-y-4">
+            <div className="text-2xl">蓝牙已断开</div>
+            <div className="text-sm text-attrax-muted">
+              硬件跳蛋的连接丢失。聊天已暂停。
+              <br />
+              请重新连接硬件或退出会话。
+            </div>
+            <button
+              onClick={handleBtReconnect}
+              disabled={btReconnecting}
+              className="w-full py-3 rounded-btn bg-attrax-grad text-white font-medium disabled:opacity-50"
+            >
+              {btReconnecting ? "连接中…" : "重新连接硬件"}
+            </button>
+            <button
+              onClick={handleLeave}
+              className="w-full py-2 text-sm text-attrax-danger border border-attrax-danger/40 rounded-btn hover:bg-attrax-danger/10"
+            >
+              退出会话
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Terminated overlay */}
       {terminatedBanner.visible && (

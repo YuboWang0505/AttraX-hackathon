@@ -45,7 +45,9 @@ export function Login() {
     store.setRole(role);
     store.setCode(finalCode);
     store.setSafeWord(safeWord);
-    store.setPage("chat");
+    store.setDemoMode(false);
+    // M must pair BT before entering chat; S skips the gate.
+    store.setPage(role === "m" ? "bt_gate" : "chat");
   }
 
   return (

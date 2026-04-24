@@ -61,15 +61,18 @@ export function supportsWebBluetooth(): boolean {
 
 /**
  * Open the browser's native BT chooser and connect to the toy.
- * Falls back to offline mode (no-op writes) if:
- *   - navigator.bluetooth is unavailable (iOS Safari, non-secure context)
- *   - the user dismisses the chooser
- *   - connection / service discovery fails
+ *   - supported + paired → status "connected"
+ *   - navigator.bluetooth missing (iOS Safari, insecure context) → status "error"
+ *   - user dismissed the chooser / pairing failed → status "error"
+ *
+ * "offline" status is reserved for goOffline() (explicit demo mode).
+ * BtGate treats "error" as a recoverable retry state; Chat treats a
+ * transition "connected" → not-connected as a mid-session interruption.
  */
 export async function connect(): Promise<BtStatus> {
   if (!supportsWebBluetooth()) {
-    setStatus("offline");
-    return "offline";
+    setStatus("error");
+    return "error";
   }
 
   setStatus("connecting");
@@ -91,9 +94,8 @@ export async function connect(): Promise<BtStatus> {
     setStatus("connected");
     return "connected";
   } catch {
-    // User dismissed chooser, or pairing failed. Fall back to offline mode.
-    setStatus("offline");
-    return "offline";
+    setStatus("error");
+    return "error";
   }
 }
 
