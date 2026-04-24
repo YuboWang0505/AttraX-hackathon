@@ -1,0 +1,14 @@
+node_modules
+dist
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+.vite
+coverage
+
+# TypeScript build artifacts (from composite projects / tsconfig.node)
+*.tsbuildinfo
+frontend/vite.config.d.ts
+frontend/vite.config.js

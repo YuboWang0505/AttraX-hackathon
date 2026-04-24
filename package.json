@@ -1,0 +1,19 @@
+{
+  "name": "attrax-hackathon",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n backend,frontend -c blue,green \"npm run dev -w @attrax/backend\" \"npm run dev -w @attrax/frontend\"",
+    "build": "npm run build -w @attrax/backend && npm run build -w @attrax/frontend",
+    "test": "npm run test -w @attrax/backend",
+    "repl": "npm run repl -w @attrax/backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
+  }
+}
