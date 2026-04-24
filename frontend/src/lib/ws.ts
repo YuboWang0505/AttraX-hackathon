@@ -28,7 +28,9 @@ export function connect(opts: ConnectOpts): WsHandle {
     const scheme = window.location.protocol === "https:" ? "wss" : "ws";
     const host = window.location.host;
     const params = new URLSearchParams({ code: opts.code, role: opts.role });
-    if (opts.role === "m" && opts.safeWord) {
+    // Either role may bring a safe word at connect time. Server applies
+    // first-write-wins and ignores subsequent values.
+    if (opts.safeWord) {
       params.set("safeWord", opts.safeWord);
     }
     return `${scheme}://${host}/ws?${params.toString()}`;

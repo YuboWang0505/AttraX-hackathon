@@ -149,9 +149,15 @@ export function Chat() {
     <div className="min-h-full flex flex-col md:flex-row">
       {/* Header */}
       <div className="md:hidden px-4 py-3 flex items-center justify-between border-b border-white/5">
-        <div className="text-xs">
-          <div className="text-attrax-muted">安全词</div>
-          <div className="font-mono text-attrax-text">{safeWord || "—"}</div>
+        <div className="flex gap-4 text-xs">
+          <div>
+            <div className="text-attrax-muted">房间</div>
+            <div className="font-mono text-attrax-text">{code}</div>
+          </div>
+          <div>
+            <div className="text-attrax-muted">安全词</div>
+            <div className="font-mono text-attrax-text">{safeWord || "—"}</div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <BluetoothStatus />
@@ -201,11 +207,26 @@ export function Chat() {
           ref={scrollRef}
           className="flex-1 overflow-y-auto px-4 md:px-6 py-4 space-y-3"
         >
-          {messages.length === 0 && (
+          {messages.length === 0 && connection === "waiting" && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <div className="text-xs text-attrax-muted">把下面的房间号发给对方</div>
+              <div className="font-mono text-3xl tracking-[0.3em] bg-attrax-grad bg-clip-text text-transparent">
+                {code}
+              </div>
+              <div className="text-sm text-attrax-muted">等待对方加入…</div>
+              {safeWord && (
+                <div className="text-xs text-attrax-muted">
+                  当前安全词：
+                  <span className="font-mono text-attrax-text ml-1">
+                    {safeWord}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          {messages.length === 0 && connection === "ready" && (
             <div className="text-center text-attrax-muted text-sm py-8">
-              {connection === "waiting"
-                ? "等待对方加入房间…"
-                : "开始聊天吧。S 的消息会驱动档位变化。"}
+              开始聊天吧。S 的消息会驱动档位变化。
             </div>
           )}
           {messages.map((m) => (

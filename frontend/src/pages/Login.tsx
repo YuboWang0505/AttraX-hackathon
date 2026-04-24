@@ -13,7 +13,9 @@ export function Login() {
   const store = useStore();
 
   const canSubmit =
-    role !== null && /^\d{6}$/.test(code) && (role === "s" || safeWord.length <= 16);
+    role !== null &&
+    (code === "" || /^\d{6}$/.test(code)) &&
+    safeWord.length <= 16;
 
   function handleGenerate() {
     fetch("/api/room", { method: "POST" })
@@ -22,14 +24,26 @@ export function Login() {
       .catch(() => setError("生成 code 失败，请手动输入"));
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!role) return;
-    if (!/^\d{6}$/.test(code)) {
+    let finalCode = code;
+    if (!finalCode) {
+      try {
+        const resp = await fetch("/api/room", { method: "POST" });
+        const data: { code: string } = await resp.json();
+        finalCode = data.code;
+        setCode(finalCode);
+      } catch {
+        setError("创建房间失败，请检查后端是否运行");
+        return;
+      }
+    }
+    if (!/^\d{6}$/.test(finalCode)) {
       setError("code 必须为 6 位数字");
       return;
     }
     store.setRole(role);
-    store.setCode(code);
+    store.setCode(finalCode);
     store.setSafeWord(safeWord);
     store.setPage("chat");
   }
@@ -85,35 +99,27 @@ export function Login() {
               onChange={(e) =>
                 setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LEN))
               }
-              placeholder="483921"
+              placeholder="留空 + 创建 或 输入对方已有 code"
               className="w-full bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 text-center text-xl font-mono tracking-[0.5em] focus:border-attrax-accent outline-none"
             />
           </div>
 
-          {role === "m" && (
-            <div>
-              <label className="block text-xs text-attrax-muted mb-2">
-                安全词（留空使用默认 "安全词"）
-              </label>
-              <input
-                type="text"
-                maxLength={16}
-                value={safeWord}
-                onChange={(e) => setSafeWord(e.target.value)}
-                placeholder="安全词"
-                className="w-full bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 focus:border-attrax-accent outline-none"
-              />
-              <p className="text-[11px] text-attrax-muted mt-1">
-                任一方说出安全词，会话立即安全终止
-              </p>
-            </div>
-          )}
-
-          {role === "s" && (
-            <p className="text-xs text-attrax-muted border-l-2 border-attrax-accent/60 pl-3">
-              进入聊天后可见 M 端设定的安全词
+          <div>
+            <label className="block text-xs text-attrax-muted mb-2">
+              安全词（留空使用默认 "安全词"）
+            </label>
+            <input
+              type="text"
+              maxLength={16}
+              value={safeWord}
+              onChange={(e) => setSafeWord(e.target.value)}
+              placeholder="安全词"
+              className="w-full bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 focus:border-attrax-accent outline-none"
+            />
+            <p className="text-[11px] text-attrax-muted mt-1">
+              任一方说出安全词，会话立即安全终止。以先进入房间方设置的为准。
             </p>
-          )}
+          </div>
 
           {error && (
             <p className="text-xs text-attrax-danger">{error}</p>
@@ -124,7 +130,7 @@ export function Login() {
             disabled={!canSubmit}
             className="w-full py-3 rounded-btn bg-attrax-grad text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            开始匹配
+            {code ? "加入房间" : "创建房间"}
           </button>
         </div>
       </div>

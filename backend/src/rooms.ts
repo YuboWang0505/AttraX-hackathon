@@ -187,9 +187,18 @@ export function handleConnection(ws: WebSocket, params: ConnectParams): void {
   // Accept ws into the slot
   setWs(room, role, ws);
 
-  // Safe-word initialization: first-write-wins per room
-  if (role === "m" && !room.safeWord && params.safeWord !== undefined) {
+  // Safe-word initialization: either role may bring the safe word at connect
+  // time via the query param. First provided value wins — subsequent joiners'
+  // values are ignored silently.
+  if (!room.safeWord && params.safeWord !== undefined) {
     room.safeWord = sanitizeSafeWord(params.safeWord);
+  }
+
+  // Fallback: once both sockets are attached, guarantee a safe word exists so
+  // the room can enter READY. Default value handles the case where neither
+  // side passed safeWord on connect.
+  if (room.sWs && room.mWs && !room.safeWord) {
+    room.safeWord = sanitizeSafeWord(undefined);
   }
 
   room.lastActivity = Date.now();
@@ -269,8 +278,7 @@ async function handleMessage(room: Room, role: Role, msg: ClientMsg): Promise<vo
     }
 
     case "set_safe_word": {
-      // First-write-wins: M may set safe word exactly once per room lifetime
-      if (role !== "m") return;
+      // First-write-wins, either role. Silently ignored after safeWord is set.
       if (room.safeWord) return;
       room.safeWord = sanitizeSafeWord(msg.word);
       if (bothReady(room)) {
