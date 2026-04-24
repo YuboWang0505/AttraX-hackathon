@@ -51,27 +51,27 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-full flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-attrax-panel rounded-card p-8 border border-white/5 shadow-xl">
+    <div className="min-h-full flex items-center justify-center px-4 sm:p-6 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="w-full max-w-md bg-ink-800 rounded-card p-6 sm:p-8 border border-ink-700/60 shadow-card">
         <h1 className="text-center text-3xl font-semibold tracking-wide bg-attrax-grad bg-clip-text text-transparent">
           AttraX
         </h1>
-        <p className="text-center text-attrax-muted text-sm mt-1">
+        <p className="text-center text-ink-500 text-sm mt-1">
           远程互动 · 脱机演示模式
         </p>
 
         <div className="mt-8 space-y-6">
           <div>
-            <label className="block text-xs text-attrax-muted mb-2">角色</label>
+            <label className="block text-xs text-ink-500 mb-2">角色</label>
             <div className="grid grid-cols-2 gap-3">
               {(["s", "m"] as Role[]).map((r) => (
                 <button
                   key={r}
                   onClick={() => setRole(r)}
-                  className={`py-4 rounded-btn border transition ${
+                  className={`py-4 rounded-tile border transition ${
                     role === r
-                      ? "bg-attrax-grad border-transparent text-white"
-                      : "bg-transparent border-white/10 text-attrax-text hover:border-white/30"
+                      ? "bg-accent-500 border-transparent text-white"
+                      : "bg-transparent border-ink-700 text-white hover:border-ink-500"
                   }`}
                 >
                   <div className="text-lg font-semibold">{r.toUpperCase()}</div>
@@ -85,10 +85,10 @@ export function Login() {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-attrax-muted">房间 Code (6 位数字)</label>
+              <label className="text-xs text-ink-500">房间 Code (6 位数字)</label>
               <button
                 onClick={handleGenerate}
-                className="text-xs text-attrax-accent hover:underline"
+                className="text-xs text-accent-500 hover:underline"
               >
                 生成随机 code
               </button>
@@ -102,12 +102,12 @@ export function Login() {
                 setCode(e.target.value.replace(/\D/g, "").slice(0, CODE_LEN))
               }
               placeholder="留空 + 创建 或 输入对方已有 code"
-              className="w-full bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 text-center text-xl font-mono tracking-[0.5em] focus:border-attrax-accent outline-none"
+              className="w-full bg-ink-900 text-white placeholder:text-ink-500 border border-ink-700 rounded-pill px-5 py-3 text-center text-xl font-mono tracking-[0.5em] focus:border-accent-500 outline-none"
             />
           </div>
 
           <div>
-            <label className="block text-xs text-attrax-muted mb-2">
+            <label className="block text-xs text-ink-500 mb-2">
               安全词（留空使用默认 "安全词"）
             </label>
             <input
@@ -116,21 +116,21 @@ export function Login() {
               value={safeWord}
               onChange={(e) => setSafeWord(e.target.value)}
               placeholder="安全词"
-              className="w-full bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 focus:border-attrax-accent outline-none"
+              className="w-full bg-ink-900 text-white placeholder:text-ink-500 border border-ink-700 rounded-pill px-5 py-3 focus:border-accent-500 outline-none"
             />
-            <p className="text-[11px] text-attrax-muted mt-1">
+            <p className="text-[11px] text-ink-500 mt-1">
               任一方说出安全词，会话立即安全终止。以先进入房间方设置的为准。
             </p>
           </div>
 
           {error && (
-            <p className="text-xs text-attrax-danger">{error}</p>
+            <p className="text-xs text-danger">{error}</p>
           )}
 
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="w-full py-3 rounded-btn bg-attrax-grad text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-3 rounded-pill bg-accent-500 hover:bg-accent-600 text-white font-medium disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {code ? "加入房间" : "创建房间"}
           </button>

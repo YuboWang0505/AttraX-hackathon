@@ -75,10 +75,10 @@ export function IntensityViz({ intensity, compact = false }: Props) {
         />
       </div>
       <div
-        className={`flex items-center gap-2 text-attrax-muted ${compact ? "text-xs" : "text-sm"}`}
+        className={`flex items-center gap-2 text-ink-500 ${compact ? "text-xs" : "text-sm"}`}
       >
         <span>档位</span>
-        <span className="font-mono text-attrax-text">
+        <span className="font-mono text-ink-900">
           {intensity} / 3 · {LABELS[intensity]}
         </span>
       </div>

@@ -192,17 +192,17 @@ export function Chat() {
   }, [connection]);
 
   return (
-    <div className="min-h-full flex flex-col md:flex-row">
+    <div className="min-h-full flex flex-col md:flex-row bg-grad-cool text-ink-900">
       {/* Header */}
-      <div className="md:hidden px-4 py-3 flex items-center justify-between border-b border-white/5">
+      <div className="md:hidden px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between border-b border-ink-300/60">
         <div className="flex gap-4 text-xs">
           <div>
-            <div className="text-attrax-muted">房间</div>
-            <div className="font-mono text-attrax-text">{code}</div>
+            <div className="text-ink-500">房间</div>
+            <div className="font-mono text-ink-900">{code}</div>
           </div>
           <div>
-            <div className="text-attrax-muted">安全词</div>
-            <div className="font-mono text-attrax-text">{safeWord || "—"}</div>
+            <div className="text-ink-500">安全词</div>
+            <div className="font-mono text-ink-900">{safeWord || "—"}</div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -213,34 +213,34 @@ export function Chat() {
           )}
           <button
             onClick={handleLeave}
-            className="text-xs text-attrax-danger px-2 py-1 rounded-btn border border-attrax-danger/40"
+            className="text-xs text-danger px-3 py-1.5 rounded-pill border border-danger/40 active:bg-danger/10"
           >
             退出
           </button>
         </div>
       </div>
 
-      <div className="md:hidden flex items-center justify-center py-4 border-b border-white/5 bg-attrax-panel/40">
+      <div className="md:hidden flex items-center justify-center py-4 border-b border-ink-300/60 bg-white/30 backdrop-blur-sm">
         <IntensityViz intensity={intensity} compact />
       </div>
 
       {/* Chat column */}
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="hidden md:flex items-center justify-between px-6 py-4 border-b border-white/5">
+        <div className="hidden md:flex items-center justify-between px-6 py-4 border-b border-ink-300/60">
           <div className="flex items-center gap-6">
             <div className="text-sm">
-              <span className="text-attrax-muted mr-2">安全词</span>
+              <span className="text-ink-500 mr-2">安全词</span>
               <span className="font-mono">{safeWord || "—"}</span>
             </div>
             <div className="text-sm">
-              <span className="text-attrax-muted mr-2">房间</span>
+              <span className="text-ink-500 mr-2">房间</span>
               <span className="font-mono">{code}</span>
             </div>
             <div className="text-sm">
-              <span className="text-attrax-muted mr-2">你是</span>
+              <span className="text-ink-500 mr-2">你是</span>
               <span className="uppercase font-semibold">{role}</span>
             </div>
-            <div className="text-sm text-attrax-muted">{statusText}</div>
+            <div className="text-sm text-ink-500">{statusText}</div>
           </div>
           <div className="flex items-center gap-3">
             {role === "m" ? (
@@ -250,7 +250,7 @@ export function Chat() {
           )}
             <button
               onClick={handleLeave}
-              className="text-xs text-attrax-danger px-3 py-1.5 rounded-btn border border-attrax-danger/40 hover:bg-attrax-danger/10"
+              className="text-xs text-danger px-3 py-1.5 rounded-pill border border-danger/40 hover:bg-danger/10"
             >
               退出
             </button>
@@ -263,15 +263,15 @@ export function Chat() {
         >
           {messages.length === 0 && connection === "waiting" && (
             <div className="flex flex-col items-center gap-3 py-8">
-              <div className="text-xs text-attrax-muted">把下面的房间号发给对方</div>
+              <div className="text-xs text-ink-500">把下面的房间号发给对方</div>
               <div className="font-mono text-3xl tracking-[0.3em] bg-attrax-grad bg-clip-text text-transparent">
                 {code}
               </div>
-              <div className="text-sm text-attrax-muted">等待对方加入…</div>
+              <div className="text-sm text-ink-500">等待对方加入…</div>
               {safeWord && (
-                <div className="text-xs text-attrax-muted">
+                <div className="text-xs text-ink-500">
                   当前安全词：
-                  <span className="font-mono text-attrax-text ml-1">
+                  <span className="font-mono text-ink-900 ml-1">
                     {safeWord}
                   </span>
                 </div>
@@ -279,7 +279,7 @@ export function Chat() {
             </div>
           )}
           {messages.length === 0 && connection === "ready" && (
-            <div className="text-center text-attrax-muted text-sm py-8">
+            <div className="text-center text-ink-500 text-sm py-8">
               开始聊天吧。S 的消息会驱动档位变化。
             </div>
           )}
@@ -288,7 +288,7 @@ export function Chat() {
           ))}
         </div>
 
-        <div className="px-4 md:px-6 py-3 border-t border-white/5 flex gap-2">
+        <div className="px-4 md:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-ink-300/60 flex gap-2">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -298,6 +298,10 @@ export function Chat() {
                 send();
               }
             }}
+            enterKeyHint="send"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
             disabled={connection !== "ready" || btInterrupted}
             placeholder={
               btInterrupted
@@ -306,13 +310,13 @@ export function Chat() {
                 ? "输入消息…"
                 : "等待连接…"
             }
-            className="flex-1 bg-attrax-bg border border-white/10 rounded-btn px-4 py-3 focus:border-attrax-accent outline-none disabled:opacity-40"
+            className="flex-1 min-w-0 bg-ink-900 text-white placeholder:text-ink-500 border border-ink-700 rounded-pill px-5 py-3 focus:border-accent-500 outline-none disabled:opacity-40"
             maxLength={200}
           />
           <button
             onClick={send}
             disabled={connection !== "ready" || !input.trim() || btInterrupted}
-            className="px-6 rounded-btn bg-attrax-grad text-white font-medium disabled:opacity-40"
+            className="px-6 rounded-pill bg-accent-500 hover:bg-accent-600 text-white font-medium disabled:opacity-40"
           >
             发送
           </button>
@@ -320,14 +324,14 @@ export function Chat() {
       </div>
 
       {/* Desktop viz panel */}
-      <div className="hidden md:flex w-80 border-l border-white/5 bg-attrax-panel/30 items-center justify-center">
+      <div className="hidden md:flex w-80 border-l border-ink-300/60 bg-white/30 backdrop-blur-sm items-center justify-center">
         <IntensityViz intensity={intensity} />
       </div>
 
       {/* BT interrupted overlay (M side only, non-demo) */}
       {btInterrupted && !terminatedBanner.visible && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-40 p-6">
-          <div className="bg-attrax-panel border border-attrax-danger/50 rounded-card p-8 max-w-sm w-full text-center space-y-4">
+          <div className="bg-attrax-panel border border-attrax-danger/50 rounded-card p-8 max-w-sm w-full text-center space-y-4 text-attrax-text">
             <div className="text-2xl">蓝牙已断开</div>
             <div className="text-sm text-attrax-muted">
               硬件跳蛋的连接丢失。聊天已暂停。
@@ -337,13 +341,13 @@ export function Chat() {
             <button
               onClick={handleBtReconnect}
               disabled={btReconnecting}
-              className="w-full py-3 rounded-btn bg-attrax-grad text-white font-medium disabled:opacity-50"
+              className="w-full py-3 rounded-pill bg-accent-500 hover:bg-accent-600 text-white font-medium disabled:opacity-50"
             >
               {btReconnecting ? "连接中…" : "重新连接硬件"}
             </button>
             <button
               onClick={handleLeave}
-              className="w-full py-2 text-sm text-attrax-danger border border-attrax-danger/40 rounded-btn hover:bg-attrax-danger/10"
+              className="w-full py-2 text-sm text-danger border border-danger/40 rounded-pill hover:bg-danger/10"
             >
               退出会话
             </button>
@@ -354,7 +358,7 @@ export function Chat() {
       {/* Terminated overlay */}
       {terminatedBanner.visible && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-attrax-panel border border-white/10 rounded-card p-8 max-w-sm text-center">
+          <div className="bg-attrax-panel border border-white/10 rounded-card p-8 max-w-sm text-center text-attrax-text">
             <div className="text-2xl mb-2">
               {terminatedBanner.reason === "safe_word"
                 ? "会话已安全终止"

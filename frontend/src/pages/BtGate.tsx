@@ -38,33 +38,33 @@ export function BtGate() {
   }
 
   return (
-    <div className="min-h-full flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-attrax-panel rounded-card p-8 border border-white/5 shadow-xl space-y-6">
+    <div className="min-h-full flex items-center justify-center px-4 sm:p-6 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="w-full max-w-md bg-ink-800 rounded-card p-6 sm:p-8 border border-ink-700/60 shadow-card space-y-6">
         <div className="text-center">
           <h1 className="text-2xl font-semibold tracking-wide bg-attrax-grad bg-clip-text text-transparent">
             房间已就绪
           </h1>
-          <div className="mt-4 font-mono text-4xl tracking-[0.3em] text-attrax-text">
+          <div className="mt-4 font-mono text-4xl tracking-[0.3em] text-white">
             {code}
           </div>
-          <div className="mt-2 text-xs text-attrax-muted">
+          <div className="mt-2 text-xs text-ink-500">
             把 code 发给对方加入房间
           </div>
           {safeWord && (
-            <div className="mt-3 text-xs text-attrax-muted">
+            <div className="mt-3 text-xs text-ink-500">
               当前安全词：
-              <span className="font-mono text-attrax-text ml-1">{safeWord}</span>
+              <span className="font-mono text-white ml-1">{safeWord}</span>
             </div>
           )}
         </div>
 
-        <div className="border-t border-white/10" />
+        <div className="border-t border-ink-700" />
 
         <div>
-          <h2 className="text-sm font-medium text-attrax-text mb-2">
+          <h2 className="text-sm font-medium text-white mb-2">
             连接你的硬件跳蛋
           </h2>
-          <ul className="text-xs text-attrax-muted space-y-1 list-disc pl-5">
+          <ul className="text-xs text-ink-500 space-y-1 list-disc pl-5">
             <li>开启硬件电源，确保 LED 指示在广播状态</li>
             <li>确认广播名为 <span className="font-mono">Vibration_Egg</span></li>
             <li>
@@ -74,7 +74,7 @@ export function BtGate() {
         </div>
 
         {!supports && (
-          <div className="text-xs text-attrax-danger border border-attrax-danger/40 rounded-btn p-3">
+          <div className="text-xs text-danger border border-danger/40 rounded-tile p-3">
             当前浏览器不支持 Web Bluetooth（需 Chrome / Edge 108+ 且
             HTTPS 或 localhost）。请换浏览器或用演示模式。
           </div>
@@ -83,12 +83,12 @@ export function BtGate() {
         <button
           onClick={handleConnect}
           disabled={!supports || connecting || connected}
-          className={`w-full py-3 rounded-btn font-medium transition ${
+          className={`w-full py-3 rounded-pill font-medium transition ${
             connected
-              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/60"
+              ? "bg-ok/20 text-ok border border-ok/60"
               : failed
-              ? "bg-attrax-danger/80 text-white"
-              : "bg-attrax-grad text-white"
+              ? "bg-danger/80 text-white"
+              : "bg-accent-500 hover:bg-accent-600 text-white"
           } disabled:opacity-60 disabled:cursor-not-allowed`}
         >
           {connected && "✓ 硬件已连接,即将进入聊天…"}
@@ -102,21 +102,21 @@ export function BtGate() {
           <span
             className={`inline-flex items-center gap-2 ${
               connected
-                ? "text-emerald-300"
+                ? "text-ok"
                 : failed
-                ? "text-attrax-danger"
-                : "text-attrax-muted"
+                ? "text-danger"
+                : "text-ink-500"
             }`}
           >
             <span
               className={`inline-block w-2 h-2 rounded-full ${
                 connected
-                  ? "bg-emerald-500"
+                  ? "bg-ok"
                   : connecting
-                  ? "bg-yellow-500 animate-pulse"
+                  ? "bg-warn animate-pulse"
                   : failed
-                  ? "bg-attrax-danger"
-                  : "bg-attrax-muted"
+                  ? "bg-danger"
+                  : "bg-ink-500"
               }`}
             />
             {connected && "已连硬件"}
@@ -127,18 +127,18 @@ export function BtGate() {
           </span>
         </div>
 
-        <div className="border-t border-white/10" />
+        <div className="border-t border-ink-700" />
 
-        <div className="flex items-center justify-between text-[11px] text-attrax-muted">
+        <div className="flex items-center justify-between text-[11px] text-ink-500">
           <button
             onClick={handleBack}
-            className="hover:text-attrax-text transition"
+            className="hover:text-white transition"
           >
             ← 返回登入
           </button>
           <button
             onClick={handleDemoSkip}
-            className="hover:text-attrax-accent transition underline underline-offset-2"
+            className="hover:text-accent-500 transition underline underline-offset-2"
           >
             没有硬件?切到演示模式
           </button>
