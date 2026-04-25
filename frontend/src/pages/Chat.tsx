@@ -5,7 +5,6 @@ import type { ClientMsg, ServerMsg } from "@attrax/shared";
 import { BluetoothStatus } from "../components/BluetoothStatus.js";
 import { ChatBubble } from "../components/ChatBubble.js";
 import { IntensityViz } from "../components/IntensityViz.js";
-import { VoiceDial } from "../components/VoiceDial.js";
 import * as bt from "../lib/bluetooth.js";
 import type { BtStatus } from "../lib/bluetooth.js";
 import {
@@ -597,6 +596,17 @@ export function Chat() {
         </div>
       </div>
 
+      {callState === "in_call" && (
+        <CallBar
+          recording={sttListening}
+          muted={callMuted}
+          onToggleMute={toggleMute}
+          onHangup={endCall}
+          elapsed={callElapsed}
+          className="md:hidden"
+        />
+      )}
+
       {/* Safety word banner — high-emphasis, visible at all times on both
           breakpoints. Mobile gets a dedicated row; desktop renders the
           same component absolutely positioned over the chat header area. */}
@@ -647,6 +657,17 @@ export function Chat() {
             </button>
           </div>
         </div>
+
+        {callState === "in_call" && (
+          <CallBar
+            recording={sttListening}
+            muted={callMuted}
+            onToggleMute={toggleMute}
+            onHangup={endCall}
+            elapsed={callElapsed}
+            className="hidden md:flex"
+          />
+        )}
 
         <div
           ref={scrollRef}
@@ -780,16 +801,6 @@ export function Chat() {
             onCancel={cancelOutgoingCall}
             onAccept={acceptIncomingCall}
             onReject={rejectIncomingCall}
-          />
-        )}
-        {callState === "in_call" && (
-          <InCallOverlay
-            intensity={intensity}
-            recording={sttListening}
-            muted={callMuted}
-            onToggleMute={toggleMute}
-            onHangup={endCall}
-            elapsed={callElapsed}
           />
         )}
       </AnimatePresence>
@@ -1115,50 +1126,37 @@ function RingingOverlay({
   );
 }
 
-interface InCallOverlayProps {
-  intensity: import("@attrax/shared").Intensity;
+interface CallBarProps {
   recording: boolean;
   muted: boolean;
   onToggleMute: () => void;
   onHangup: () => void;
   elapsed: number;
+  className?: string;
 }
 
 /**
- * In-call screen — circular VoiceDial driven by current intensity, status
- * pill (Listening / Muted / Live + mm:ss), mute + hangup controls. The
- * dial size adapts once at mount based on viewport so it fits both phone
- * and desktop without needing a resize listener.
+ * Inline call status bar — replaces the old fullscreen InCallOverlay so the
+ * chat UI stays interactive during a voice call. Sits between the page
+ * header and the SafetyBanner. Shows status (Live/Listening/Muted),
+ * mm:ss elapsed, mic toggle, and a red hangup button. Intensity feedback
+ * is already covered by IntensityViz on the chat page itself.
  */
-function InCallOverlay({
-  intensity,
+function CallBar({
   recording,
   muted,
   onToggleMute,
   onHangup,
   elapsed,
-}: InCallOverlayProps) {
-  const dialSize = useMemo(() => {
-    if (typeof window === "undefined") return 320;
-    return Math.floor(
-      Math.min(380, window.innerWidth - 64, window.innerHeight * 0.55),
-    );
-  }, []);
+  className = "",
+}: CallBarProps) {
   const mm = Math.floor(elapsed / 60).toString().padStart(2, "0");
   const ss = (elapsed % 60).toString().padStart(2, "0");
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]"
-    >
-      <div className="mesh-bg" />
-      <div className="mesh-glow" />
-
-      <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 inline-flex items-center gap-2 bg-white/70 backdrop-blur-xl border border-white/80 rounded-full px-4 py-2 shadow-sm">
+    <div className={`shrink-0 mx-4 md:mx-6 mb-2 flex items-center justify-between gap-3 bg-white/70 backdrop-blur-xl border border-white/80 rounded-full px-4 py-2 shadow-sm ${className}`}>
+      <div className="flex items-center gap-2 min-w-0">
         <span
-          className={`inline-block w-2 h-2 rounded-full ${
+          className={`inline-block w-2 h-2 rounded-full shrink-0 ${
             muted
               ? "bg-red-500"
               : recording
@@ -1169,24 +1167,14 @@ function InCallOverlay({
         <span className="text-[10px] font-black uppercase tracking-[0.25em] text-black/60">
           {muted ? "Muted" : recording ? "Listening" : "Live"}
         </span>
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40 tabular-nums">
+        <span className="text-xs font-bold tabular-nums text-black/70 ml-1">
           {mm}:{ss}
         </span>
       </div>
-
-      <div className="relative my-auto flex items-center justify-center">
-        <VoiceDial
-          intensity={intensity}
-          active={!muted}
-          recording={recording && !muted}
-          size={dialSize}
-        />
-      </div>
-
-      <div className="relative flex items-center justify-center gap-6 sm:gap-8 mt-6">
+      <div className="flex items-center gap-2">
         <button
           onClick={onToggleMute}
-          className={`w-16 h-16 rounded-full flex items-center justify-center shadow-[0_15px_40px_rgba(0,0,0,0.15)] active:scale-95 transition-all ${
+          className={`w-9 h-9 rounded-full flex items-center justify-center active:scale-95 transition-all ${
             muted
               ? "bg-white/60 border border-white/80"
               : "bg-white border border-white/80"
@@ -1194,20 +1182,20 @@ function InCallOverlay({
           aria-label={muted ? "取消静音" : "静音"}
         >
           {muted ? (
-            <MicOff size={24} className="text-red-500" strokeWidth={2.5} />
+            <MicOff size={16} className="text-red-500" strokeWidth={2.5} />
           ) : (
-            <Mic size={24} className="text-black" strokeWidth={2.5} />
+            <Mic size={16} className="text-black" strokeWidth={2.5} />
           )}
         </button>
         <button
           onClick={onHangup}
-          className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 flex items-center justify-center shadow-[0_20px_50px_rgba(239,68,68,0.45)] active:scale-95 transition-all"
+          className="w-9 h-9 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 flex items-center justify-center shadow-[0_8px_20px_rgba(239,68,68,0.35)] active:scale-95 transition-all"
           aria-label="挂断"
         >
-          <PhoneOff size={32} className="text-white" strokeWidth={2.5} />
+          <PhoneOff size={16} className="text-white" strokeWidth={2.5} />
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
