@@ -1,7 +1,11 @@
+import { motion } from "framer-motion";
+import { Bluetooth } from "lucide-react";
 import { useEffect, useState } from "react";
 import * as bt from "../lib/bluetooth.js";
 import type { BtStatus } from "../lib/bluetooth.js";
 import { useStore } from "../store.js";
+
+const BRAND = "#FF8A3D";
 
 export function BtGate() {
   const { code, safeWord, setPage, setDemoMode, resetSession } = useStore();
@@ -9,7 +13,6 @@ export function BtGate() {
 
   useEffect(() => bt.subscribe(setStatus), []);
 
-  // Auto-advance once BT is connected
   useEffect(() => {
     if (status === "connected") {
       const t = setTimeout(() => setPage("chat"), 900);
@@ -38,112 +41,131 @@ export function BtGate() {
   }
 
   return (
-    <div className="min-h-full flex items-center justify-center px-4 sm:p-6 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
-      <div className="w-full max-w-md bg-ink-800 rounded-card p-6 sm:p-8 border border-ink-700/60 shadow-card space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-wide bg-attrax-grad bg-clip-text text-transparent">
-            房间已就绪
-          </h1>
-          <div className="mt-4 font-mono text-4xl tracking-[0.3em] text-white">
+    <main className="min-h-full w-full flex items-center justify-center px-4 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] relative overflow-hidden">
+      <div className="mesh-bg" />
+      <div className="mesh-glow" />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md bg-white/40 backdrop-blur-3xl p-6 sm:p-10 rounded-[2.25rem] sm:rounded-[3rem] shadow-[0_40px_100px_rgba(0,0,0,0.06)] border border-white/60 relative overflow-hidden"
+      >
+        {/* Header — same rhythm as Login: pill tag + huge value + soft sub */}
+        <div className="text-center mb-8 sm:mb-12">
+          <div className="inline-flex px-4 py-2 rounded-full bg-black/5 text-[10px] font-black uppercase tracking-[0.25em] text-black/40 mb-4 sm:mb-6">
+            Room Ready
+          </div>
+          <div
+            className="font-black tracking-[0.25em] text-5xl sm:text-6xl mb-3 sm:mb-4"
+            style={{ color: BRAND }}
+          >
             {code}
           </div>
-          <div className="mt-2 text-xs text-ink-500">
+          <div className="text-[10px] font-black text-black/30 uppercase tracking-[0.25em]">
             把 code 发给对方加入房间
           </div>
           {safeWord && (
-            <div className="mt-3 text-xs text-ink-500">
-              当前安全词：
-              <span className="font-mono text-white ml-1">{safeWord}</span>
+            <div className="mt-4 sm:mt-5 inline-flex items-center gap-2 bg-white/60 border border-white/80 px-4 py-2 rounded-full shadow-sm">
+              <span className="text-[9px] font-black text-black/30 uppercase tracking-[0.2em]">
+                Safety
+              </span>
+              <span className="font-bold text-black text-sm">{safeWord}</span>
             </div>
           )}
         </div>
 
-        <div className="border-t border-ink-700" />
-
-        <div>
-          <h2 className="text-sm font-medium text-white mb-2">
-            连接你的硬件跳蛋
-          </h2>
-          <ul className="text-xs text-ink-500 space-y-1 list-disc pl-5">
-            <li>开启硬件电源，确保 LED 指示在广播状态</li>
-            <li>确认广播名为 <span className="font-mono">Vibration_Egg</span></li>
-            <li>
-              点下方按钮，在 Chrome 浮层里选择设备后点 "配对"
-            </li>
-          </ul>
-        </div>
-
         {!supports && (
-          <div className="text-xs text-danger border border-danger/40 rounded-tile p-3">
-            当前浏览器不支持 Web Bluetooth（需 Chrome / Edge 108+ 且
-            HTTPS 或 localhost）。请换浏览器或用演示模式。
+          <div className="mb-5 sm:mb-6 bg-red-50 border border-red-200 rounded-[1.5rem] sm:rounded-[2rem] px-4 sm:px-5 py-3 sm:py-4 text-xs text-red-600 font-semibold leading-relaxed">
+            当前浏览器不支持 Web Bluetooth(需 Chrome / Edge 108+ 且
+            HTTPS 或 localhost)。请换浏览器或用演示模式。
           </div>
         )}
 
-        <button
+        {/* Primary CTA — matches Login's CONNECT SESSION button */}
+        <motion.button
+          whileHover={!connected && !connecting ? { y: -2 } : undefined}
+          whileTap={!connected && !connecting ? { scale: 0.98 } : undefined}
           onClick={handleConnect}
           disabled={!supports || connecting || connected}
-          className={`w-full py-3 rounded-pill font-medium transition ${
+          className={`w-full h-16 sm:h-24 rounded-full text-sm sm:text-lg font-black flex items-center justify-center gap-3 sm:gap-4 transition-colors disabled:cursor-not-allowed ${
             connected
-              ? "bg-ok/20 text-ok border border-ok/60"
+              ? "bg-emerald-500 text-white shadow-[0_20px_50px_rgba(16,185,129,0.3)]"
               : failed
-              ? "bg-danger/80 text-white"
-              : "bg-accent-500 hover:bg-accent-600 text-white"
-          } disabled:opacity-60 disabled:cursor-not-allowed`}
+              ? "bg-red-500 text-white shadow-[0_20px_50px_rgba(239,68,68,0.25)]"
+              : "bg-black text-white shadow-[0_20px_50px_rgba(0,0,0,0.2)] shimmer-effect"
+          }`}
         >
-          {connected && "✓ 硬件已连接,即将进入聊天…"}
-          {connecting && "连接中… 请在浮层中选择设备"}
-          {failed && "重试连接"}
-          {status === "idle" && "连接蓝牙设备"}
-          {status === "offline" && "连接蓝牙设备"}
-        </button>
+          <Bluetooth size={22} className="sm:hidden" />
+          <Bluetooth size={24} className="hidden sm:block" />
+          {connected
+            ? "HARDWARE READY"
+            : connecting
+            ? "CONNECTING..."
+            : failed
+            ? "RETRY CONNECT"
+            : "CONNECT DEVICE"}
+        </motion.button>
 
-        <div className="text-xs text-center">
+        {/* Status row */}
+        <div className="mt-4 sm:mt-6 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em]">
           <span
-            className={`inline-flex items-center gap-2 ${
+            className={`inline-block w-2 h-2 rounded-full ${
               connected
-                ? "text-ok"
+                ? "bg-emerald-500"
+                : connecting
+                ? "bg-yellow-500 animate-pulse"
                 : failed
-                ? "text-danger"
-                : "text-ink-500"
+                ? "bg-red-500"
+                : status === "offline"
+                ? ""
+                : "bg-black/20"
             }`}
+            style={
+              status === "offline" && !connected && !connecting && !failed
+                ? { backgroundColor: BRAND }
+                : undefined
+            }
+          />
+          <span
+            className={
+              connected
+                ? "text-emerald-600"
+                : connecting
+                ? "text-yellow-600"
+                : failed
+                ? "text-red-500"
+                : "text-black/40"
+            }
           >
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${
-                connected
-                  ? "bg-ok"
-                  : connecting
-                  ? "bg-warn animate-pulse"
-                  : failed
-                  ? "bg-danger"
-                  : "bg-ink-500"
-              }`}
-            />
-            {connected && "已连硬件"}
-            {connecting && "连接中…"}
-            {failed && "连接失败,请检查硬件后重试"}
-            {status === "idle" && "未连接"}
-            {status === "offline" && "演示模式"}
+            {connected
+              ? "已连硬件"
+              : connecting
+              ? "连接中…"
+              : failed
+              ? "连接失败,请检查硬件后重试"
+              : status === "offline"
+              ? "演示模式"
+              : "未连接"}
           </span>
         </div>
 
-        <div className="border-t border-ink-700" />
-
-        <div className="flex items-center justify-between text-[11px] text-ink-500">
+        {/* Footer actions */}
+        <div className="mt-6 sm:mt-10 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.2em]">
           <button
             onClick={handleBack}
-            className="hover:text-white transition"
+            className="text-black/40 hover:text-black transition"
           >
             ← 返回登入
           </button>
           <button
             onClick={handleDemoSkip}
-            className="hover:text-accent-500 transition underline underline-offset-2"
+            className="hover:opacity-80 transition"
+            style={{ color: BRAND }}
           >
-            没有硬件?切到演示模式
+            切到演示模式
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </main>
   );
 }

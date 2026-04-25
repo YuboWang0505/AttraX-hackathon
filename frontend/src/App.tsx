@@ -5,8 +5,11 @@ import { useStore } from "./store.js";
 
 export default function App() {
   const page = useStore((s) => s.page);
+  // Each page paints its own scene background (Login + BtGate share the
+  // light mesh; Chat has its own haze). The outer shell stays transparent
+  // so the per-page backdrop isn't overpainted.
   return (
-    <div className="h-full min-h-full bg-stage text-white">
+    <div className="h-full min-h-full">
       {(page === "login" || page === "terminated") && <Login />}
       {page === "bt_gate" && <BtGate />}
       {page === "chat" && <Chat />}

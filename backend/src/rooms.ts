@@ -300,6 +300,14 @@ async function handleMessage(room: Room, role: Role, msg: ClientMsg): Promise<vo
       return;
     }
 
+    case "roll_start": {
+      // Fan out so the peer plays the dice animation in sync. The
+      // selected face arrives as a normal chat message ~1.5s later.
+      const peer = peerOf(room, role);
+      sendJson(peer, { type: "peer_roll_start" });
+      return;
+    }
+
     case "chat": {
       if (!bothReady(room)) return;
       // Assign seq_id synchronously BEFORE any await — preserves send order.

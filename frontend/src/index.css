@@ -15,8 +15,11 @@ body,
 
 body {
   height: 100%;
-  background-color: #0a0a0a;
-  color: #ffffff;
+  /* Neutral body backdrop — each page paints its own scene bg. Landing
+     (Login) paints a light mesh; Chat paints haze; BtGate paints stage.
+     The old hard-coded #0a0a0a was bleeding through the Login mesh. */
+  background-color: #ffffff;
+  color: #1a1a1a;
   font-family:
     system-ui,
     -apple-system,
@@ -36,6 +39,50 @@ body {
 input,
 textarea {
   font-size: 16px;
+}
+
+/* Landing mesh gradient + accent glow (Login page background).
+   Matches the reference project's dual-layer backdrop: a fixed full-viewport
+   base gradient plus an absolute glow layer that blurs inside the centered
+   main stage. */
+.mesh-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(135deg, #E6F3FF 0%, #FFF5E6 50%, #FFEBEB 100%);
+  pointer-events: none;
+}
+.mesh-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(at 80% 60%, rgba(255, 138, 61, 0.25) 0px, transparent 50%),
+    radial-gradient(at 20% 40%, rgba(135, 206, 250, 0.3) 0px, transparent 50%);
+  filter: blur(80px);
+  pointer-events: none;
+}
+
+/* Subtle sheen that sweeps across the primary CTA. */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.shimmer-effect {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-effect::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.2),
+    transparent
+  );
+  animation: shimmer 2.6s infinite;
+  pointer-events: none;
 }
 
 /* iMessage-style bubble tail (rotated square, inherits bubble bg) */

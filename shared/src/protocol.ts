@@ -15,7 +15,10 @@ export type ClientMsg =
   | { type: "chat"; text: string }
   | { type: "bt_status"; status: BtBroadcastStatus }
   | { type: "leave" }
-  | { type: "ping" };
+  | { type: "ping" }
+  // S rolls an intensity die; server fans out so M can play the same
+  // animation in sync. Outcome follows as a normal chat message.
+  | { type: "roll_start" };
 
 export type ErrorCode =
   | "ROOM_FULL"
@@ -40,4 +43,7 @@ export type ServerMsg =
   | { type: "peer_bt_status"; role: Role; status: BtBroadcastStatus }
   | { type: "peer_left" }
   | { type: "error"; code: ErrorCode; message: string }
-  | { type: "pong" };
+  | { type: "pong" }
+  // Peer started rolling a die — show the same animation locally. The
+  // selected face arrives later as a normal chat message.
+  | { type: "peer_roll_start" };

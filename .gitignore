@@ -12,3 +12,6 @@ coverage
 *.tsbuildinfo
 frontend/vite.config.d.ts
 frontend/vite.config.js
+
+# Reference UI prototype (kept locally for design pickup, not part of repo)
+参考UI/UI/
