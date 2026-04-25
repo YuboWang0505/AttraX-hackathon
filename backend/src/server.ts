@@ -10,6 +10,34 @@ import { transcribe } from "./stt/siliconflow.js";
 const PORT = Number(process.env.PORT ?? 3000);
 
 const app = express();
+
+// CORS — frontend (Cloudflare Pages) and backend (Render) live on
+// different origins in prod, so we allow the configured frontend origin
+// (or any origin in dev). Set ALLOWED_ORIGINS to a comma-separated list,
+// e.g. "https://attrax.pages.dev,https://attrax-hackathon.pages.dev".
+const allowed = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    if (allowed.length === 0 || allowed.includes(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    }
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Max-Age", "86400");
+  }
+  if (req.method === "OPTIONS") {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 app.use(express.json());
 
 app.get("/api/health", (_req, res) => {
@@ -79,8 +107,8 @@ server.on("upgrade", (req, socket, head) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`[attrax] backend listening on http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`[attrax] backend listening on http://0.0.0.0:${PORT}`);
   console.log(
     `[attrax] openrouter key: ${process.env.OPENROUTER_API_KEY ? "present" : "absent (fallback mode)"}`,
   );

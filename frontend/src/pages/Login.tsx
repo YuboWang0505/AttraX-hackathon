@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Users } from "lucide-react";
 import { useState } from "react";
 import type { Role } from "@attrax/shared";
+import { backendUrl } from "../lib/config.js";
 import { useStore } from "../store.js";
 
 const BRAND = "#FF8A3D";
@@ -40,7 +41,7 @@ export function Login() {
         // Backend now materializes the Room here (with our safe word) so
         // that a joiner with this code can never accidentally land in an
         // empty room while we're still pairing BT.
-        const resp = await fetch("/api/room", {
+        const resp = await fetch(backendUrl("/api/room"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ safeWord: safeWord.trim() }),

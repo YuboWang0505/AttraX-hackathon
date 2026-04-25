@@ -1,3 +1,5 @@
+import { backendUrl } from "./config.js";
+
 // Chunked server-side STT. Chrome's Web Speech API is unusable inside the
 // GFW (Google cloud dependency), so we do our own lightweight capture:
 //   1. start a MediaRecorder on the call's local audio track
@@ -72,7 +74,7 @@ export function startChunkedStt(opts: ChunkedSttOpts): ChunkedSttHandle {
   async function uploadChunk(blob: Blob): Promise<void> {
     bumpListening(+1);
     try {
-      const res = await fetch("/api/stt", {
+      const res = await fetch(backendUrl("/api/stt"), {
         method: "POST",
         headers: { "Content-Type": blob.type || mimeType },
         body: blob,

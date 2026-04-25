@@ -1,4 +1,5 @@
 import type { ClientMsg, Role, ServerMsg } from "@attrax/shared";
+import { backendWsUrl } from "./config.js";
 
 export interface WsHandle {
   send(msg: ClientMsg): void;
@@ -33,15 +34,13 @@ export function connect(opts: ConnectOpts): WsHandle {
   let lastFrameAt = 0;
 
   function buildUrl(): string {
-    const scheme = window.location.protocol === "https:" ? "wss" : "ws";
-    const host = window.location.host;
     const params = new URLSearchParams({ code: opts.code, role: opts.role });
     // Either role may bring a safe word at connect time. Server applies
     // first-write-wins and ignores subsequent values.
     if (opts.safeWord) {
       params.set("safeWord", opts.safeWord);
     }
-    return `${scheme}://${host}/ws?${params.toString()}`;
+    return `${backendWsUrl("/ws")}?${params.toString()}`;
   }
 
   function open() {

@@ -1,0 +1,37 @@
+# Render blueprint — one-click backend deploy.
+# https://render.com/docs/blueprint-spec
+#
+# Usage:
+#   1. In Render dashboard → New → Blueprint → connect this repo
+#   2. Render reads this file and provisions the service
+#   3. Set OPENROUTER_API_KEY and SILICONFLOW_API_KEY in env tab
+#   4. Set ALLOWED_ORIGINS to your Cloudflare Pages URL(s)
+#   5. After first deploy, copy the service URL (https://<name>.onrender.com)
+#      into the frontend's VITE_BACKEND_URL env var on Cloudflare Pages
+#
+# Free tier: spins down after 15 min idle (cold start ~30s). Upgrade to
+# starter ($7/mo) for always-on if demo timing is critical.
+
+services:
+  - type: web
+    name: attrax-backend
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: .
+    buildCommand: npm install
+    startCommand: npm start -w @attrax/backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: x-ai/grok-4-fast
+      - key: SILICONFLOW_API_KEY
+        sync: false
+      - key: SILICONFLOW_MODEL
+        value: FunAudioLLM/SenseVoiceSmall
+      - key: ALLOWED_ORIGINS
+        sync: false
