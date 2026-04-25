@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { parse as parseUrl } from "node:url";
 import { WebSocketServer } from "ws";
 import type { Role } from "@attrax/shared";
-import { generateCode, handleConnection, isValidCode } from "./rooms.js";
+import { handleConnection, isValidCode, precreateRoom } from "./rooms.js";
 
 const PORT = Number(process.env.PORT ?? 3000);
 
@@ -15,8 +15,15 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/room", (_req, res) => {
-  const code = generateCode();
+// Body shape: { safeWord?: string }
+// The Room is materialized server-side immediately so that a joiner using
+// this code never accidentally creates a separate empty room while the
+// creator is still on BtGate. The safe word ships into the room here so
+// the creator's WS connect doesn't have to bring it again.
+app.post("/api/room", (req, res) => {
+  const safeWord =
+    typeof req.body?.safeWord === "string" ? req.body.safeWord : undefined;
+  const code = precreateRoom(safeWord);
   res.json({ code });
 });
 

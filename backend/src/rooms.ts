@@ -9,8 +9,17 @@ import type { WebSocket } from "ws";
 import { runPipeline } from "./intent/pipeline.js";
 import { sanitizeSafeWord } from "./safe-word.js";
 
-const RECONNECT_WINDOW_MS = 30_000;
+// Role-specific grace windows. M may go through screen lock / BT
+// renegotiation / 4G→WiFi handoff, so a longer window keeps the
+// session alive. S has no hardware so a "vanish" is usually a real
+// exit and a shorter window improves the peer's UX.
+const GRACE_MS_S = 15_000;
+const GRACE_MS_M = 60_000;
 const IDLE_WINDOW_MS = 30 * 60 * 1000; // 30 min
+
+function graceMsFor(role: Role): number {
+  return role === "s" ? GRACE_MS_S : GRACE_MS_M;
+}
 
 export interface Room {
   code: string;
@@ -46,6 +55,26 @@ export function generateCode(): string {
     if (!rooms.has(code)) return code;
   }
   throw new Error("could not generate unique code after 20 tries");
+}
+
+/**
+ * Pre-create a room when the user clicks "Create" in Login. Without this,
+ * the room only materializes when the creator's WS finally connects (which
+ * for M can be 5-30 s later because of the BtGate step). During that gap
+ * a peer who joins with the code would create the room themselves with
+ * inverted role assumptions. Pre-creating fills the gap with a real Room
+ * carrying the creator's safe word.
+ */
+export function precreateRoom(safeWord: string | undefined): string {
+  const code = generateCode();
+  const room = createRoom(code);
+  if (safeWord) {
+    room.safeWord = sanitizeSafeWord(safeWord);
+  }
+  console.log(
+    `[rooms] precreate code=${code} safeWord=${room.safeWord ? "set" : "empty"}`,
+  );
+  return code;
 }
 
 export function isValidCode(code: unknown): code is string {
@@ -98,7 +127,7 @@ function startGraceTimer(room: Room, role: Role): void {
   const key = role === "s" ? "sGraceTimer" : "mGraceTimer";
   room[key] = setTimeout(() => {
     onGraceExpired(room, role);
-  }, RECONNECT_WINDOW_MS);
+  }, graceMsFor(role));
 }
 
 function onGraceExpired(room: Room, role: Role): void {
@@ -140,7 +169,13 @@ function pushRoomState(room: Room, target: Role): void {
       safeWord: room.safeWord,
     });
   } else {
-    sendJson(ws, { type: "room_waiting" });
+    // Even while one side is still missing, surface the safe word that's
+    // already on the room. Lets a joiner see the creator's safe word
+    // immediately instead of having to wait for bothReady.
+    sendJson(ws, {
+      type: "room_waiting",
+      safeWord: room.safeWord || null,
+    });
   }
 }
 
@@ -166,18 +201,31 @@ export function handleConnection(ws: WebSocket, params: ConnectParams): void {
   let room = rooms.get(code);
   const isReconnect = !!room && !!(role === "s" ? room.sDisconnectAt : room.mDisconnectAt);
 
+  console.log(
+    `[rooms] connect code=${code} role=${role} ` +
+      `roomExists=${!!room} isReconnect=${isReconnect} ` +
+      `sWs=${room?.sWs ? "open" : "null"} mWs=${room?.mWs ? "open" : "null"} ` +
+      `sDisconnectAt=${room?.sDisconnectAt ?? 0} mDisconnectAt=${room?.mDisconnectAt ?? 0}`,
+  );
+
   if (!room) {
     room = createRoom(code);
   }
 
   const existingWs = selfWsOf(room, role);
   if (existingWs && existingWs.readyState === existingWs.OPEN && !isReconnect) {
+    console.warn(
+      `[rooms] reject code=${code} role=${role} reason=ROLE_TAKEN ` +
+        `(existing slot is OPEN and this is not a reconnect)`,
+    );
     sendError(ws, "ROLE_TAKEN", `role ${role} already taken in room ${code}`);
     return;
   }
 
   if (room.sWs && room.mWs && selfWsOf(room, role) == null) {
-    // Defensive: shouldn't hit, both slots filled by someone else
+    console.warn(
+      `[rooms] reject code=${code} role=${role} reason=ROOM_FULL`,
+    );
     sendError(ws, "ROOM_FULL", `room ${code} is full`);
     return;
   }
@@ -185,6 +233,13 @@ export function handleConnection(ws: WebSocket, params: ConnectParams): void {
   if (isReconnect) {
     clearGraceTimer(room, role);
     setDisconnectAt(room, role, null);
+    // M coming back from a disconnect: the GATT link to the toy is most
+    // likely dead. Force-zero the room intensity so the very next chat
+    // broadcast doesn't re-trigger the hardware at the previous level
+    // (e.g. resume vibrating at 3 because S's last directive was 3).
+    if (role === "m") {
+      room.currentIntensity = 0;
+    }
   }
 
   // Accept ws into the slot
@@ -211,6 +266,11 @@ export function handleConnection(ws: WebSocket, params: ConnectParams): void {
   const peer: Role = role === "s" ? "m" : "s";
   if (bothReady(room)) {
     pushRoomState(room, peer);
+  }
+  // If this was a reconnect into an already-paired room, tell the peer
+  // we're back so it can drop the "waiting for reconnect" banner.
+  if (isReconnect && bothReady(room)) {
+    sendJson(peerOf(room, role), { type: "peer_reconnected", role });
   }
 
   ws.on("message", (data) => {
@@ -373,13 +433,29 @@ function handleClose(room: Room, role: Role, ws: WebSocket): void {
   // If the other role is already absent, close the room immediately
   const peer = peerOf(room, role);
   if (!peer) {
+    console.log(
+      `[rooms] close code=${room.code} role=${role} ` +
+        `peer=absent → closeRoom immediately`,
+    );
     setWs(room, role, null);
     closeRoom(room.code);
     return;
   }
+  console.log(
+    `[rooms] close code=${room.code} role=${role} ` +
+      `peer=present → grace ${graceMsFor(role) / 1000}s`,
+  );
 
-  // Start 30s grace window
+  // Tell the peer immediately: "the other side dropped, holding their
+  // slot for grace seconds". This replaces the silent-30s gap where the
+  // remaining user kept getting room_ready and could send messages into
+  // the void. Frontend uses this to render a small banner.
   setDisconnectAt(room, role, Date.now());
+  sendJson(peer, {
+    type: "peer_disconnecting",
+    role,
+    graceMs: graceMsFor(role),
+  });
   startGraceTimer(room, role);
   // IMPORTANT: do not send peer_left yet — reconnect may cancel it
 }

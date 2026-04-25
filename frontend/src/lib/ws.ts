@@ -16,6 +16,12 @@ export interface ConnectOpts {
 }
 
 const BACKOFF_MS = [500, 1000, 2000, 4000];
+const PING_INTERVAL_MS = 15_000;
+// If we go this long without seeing any frame from the server (any
+// message, including pong), assume the WS is half-dead and force-close
+// it so the auto-reconnect logic kicks in. Two missed pongs (~30s) is
+// the cutoff.
+const SILENCE_TIMEOUT_MS = 35_000;
 
 export function connect(opts: ConnectOpts): WsHandle {
   let ws: WebSocket | null = null;
@@ -23,6 +29,8 @@ export function connect(opts: ConnectOpts): WsHandle {
   let closedByUser = false;
   let reconnectTimer: number | null = null;
   let pingTimer: number | null = null;
+  let watchdog: number | null = null;
+  let lastFrameAt = 0;
 
   function buildUrl(): string {
     const scheme = window.location.protocol === "https:" ? "wss" : "ws";
@@ -42,15 +50,31 @@ export function connect(opts: ConnectOpts): WsHandle {
 
     ws.addEventListener("open", () => {
       attempt = 0;
+      lastFrameAt = Date.now();
       opts.onStatus("open");
       // heartbeat
       if (pingTimer) window.clearInterval(pingTimer);
       pingTimer = window.setInterval(() => {
         send({ type: "ping" });
-      }, 15_000);
+      }, PING_INTERVAL_MS);
+      // half-dead detector — if no frames arrive within the timeout
+      // window, the underlying TCP/TLS link is probably dead in a way
+      // that won't fire `close`. Force-close to trigger reconnect.
+      if (watchdog) window.clearInterval(watchdog);
+      watchdog = window.setInterval(() => {
+        if (!ws) return;
+        if (Date.now() - lastFrameAt > SILENCE_TIMEOUT_MS) {
+          try {
+            ws.close();
+          } catch {
+            // ignore — close handler will trigger reconnect
+          }
+        }
+      }, 5_000);
     });
 
     ws.addEventListener("message", (ev) => {
+      lastFrameAt = Date.now();
       try {
         const msg = JSON.parse(ev.data) as ServerMsg;
         opts.onMessage(msg);
@@ -67,6 +91,10 @@ export function connect(opts: ConnectOpts): WsHandle {
       if (pingTimer) {
         window.clearInterval(pingTimer);
         pingTimer = null;
+      }
+      if (watchdog) {
+        window.clearInterval(watchdog);
+        watchdog = null;
       }
       opts.onStatus("closed");
       if (closedByUser) return;
@@ -101,6 +129,10 @@ export function connect(opts: ConnectOpts): WsHandle {
     if (pingTimer) {
       window.clearInterval(pingTimer);
       pingTimer = null;
+    }
+    if (watchdog) {
+      window.clearInterval(watchdog);
+      watchdog = null;
     }
     if (ws) {
       try {

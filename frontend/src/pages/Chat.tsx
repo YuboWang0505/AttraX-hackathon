@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
+import { Shield } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ServerMsg } from "@attrax/shared";
 import { BluetoothStatus } from "../components/BluetoothStatus.js";
@@ -44,6 +45,7 @@ export function Chat() {
     messages,
     intensity,
     demoMode,
+    isCreator,
     connection,
     setConnection,
     appendMessage,
@@ -54,11 +56,18 @@ export function Chat() {
   const [input, setInput] = useState("");
   const [terminatedBanner, setTerminatedBanner] = useState<{
     visible: boolean;
-    reason: "safe_word" | "peer_left" | null;
+    reason: "safe_word" | "peer_left" | "error" | null;
+    errorCode?: string;
+    errorMessage?: string;
   }>({ visible: false, reason: null });
   const [btInterrupted, setBtInterrupted] = useState(false);
   const [btReconnecting, setBtReconnecting] = useState(false);
   const [peerBtStatus, setPeerBtStatus] = useState<BtStatus | null>(null);
+  /** Surfaced when peer's WS dropped but the slot is being held in grace. */
+  const [peerOffline, setPeerOffline] = useState<{
+    visible: boolean;
+    expiresAt: number;
+  }>({ visible: false, expiresAt: 0 });
   /** Dice animation state. `outcomeIdx` set only on the roller (S) side. */
   const [rolling, setRolling] = useState<{
     active: boolean;
@@ -153,6 +162,12 @@ export function Chat() {
         return;
       case "room_waiting":
         setConnection("waiting");
+        // Joiner: server has the creator's safe word even though the
+        // creator's WS isn't here yet (e.g. they're still on BtGate).
+        // Adopt it so the SafetyBanner stops showing "—".
+        if (msg.safeWord && !useStore.getState().safeWord) {
+          setSafeWord(msg.safeWord);
+        }
         return;
       case "chat":
         appendMessage({
@@ -175,6 +190,7 @@ export function Chat() {
         }, 2000);
         return;
       case "peer_left":
+        setPeerOffline({ visible: false, expiresAt: 0 });
         setTerminatedBanner({ visible: true, reason: "peer_left" });
         terminate();
         void bt.writeIntensity(0);
@@ -184,13 +200,40 @@ export function Chat() {
         }, 2000);
         return;
       case "error":
+        // Surface code + message verbatim instead of pretending it's a
+        // "peer left" event. Common cases users hit:
+        //   ROLE_TAKEN     — same role already present (often a stale tab)
+        //   ROOM_FULL      — both slots already taken
+        //   INVALID_CODE_* — bad code passed somehow (frontend pre-validates)
+        console.warn("[ws] server error:", msg.code, msg.message);
         setConnection("disconnected");
-        setTerminatedBanner({ visible: true, reason: "peer_left" });
+        setTerminatedBanner({
+          visible: true,
+          reason: "error",
+          errorCode: msg.code,
+          errorMessage: msg.message,
+        });
         setTimeout(() => {
           window.location.reload();
-        }, 2000);
+        }, 3500);
         return;
       case "pong":
+        return;
+      case "peer_disconnecting":
+        setPeerOffline({
+          visible: true,
+          expiresAt: Date.now() + msg.graceMs,
+        });
+        return;
+      case "peer_reconnected":
+        setPeerOffline({ visible: false, expiresAt: 0 });
+        // M side specifically: after we (or our peer) come back, the GATT
+        // link to the toy is suspect. Probe by writing a 0 — if the
+        // characteristic is dead the BluetoothStatus subscription will flip
+        // to non-connected and the BT-interrupt overlay opens.
+        if (role === "m" && bt.getStatus() === "connected") {
+          void bt.writeIntensity(0);
+        }
         return;
       case "peer_roll_start":
         // Mirror the same anim on our side. outcomeIdx stays null — we
@@ -271,8 +314,8 @@ export function Chat() {
       <div className="mesh-bg" />
       <div className="mesh-glow" />
 
-      {/* Mobile header — white frosted pill row */}
-      <div className="md:hidden shrink-0 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between gap-3">
+      {/* Mobile header — Room + BT + 退出 */}
+      <div className="md:hidden shrink-0 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-full px-4 py-2 shadow-sm">
           <span className="text-[9px] font-black text-black/30 uppercase tracking-[0.2em]">
             Room
@@ -296,15 +339,24 @@ export function Chat() {
         </div>
       </div>
 
+      {/* Safety word banner — high-emphasis, visible at all times on both
+          breakpoints. Mobile gets a dedicated row; desktop renders the
+          same component absolutely positioned over the chat header area. */}
+      <SafetyBanner safeWord={safeWord} className="md:hidden mx-4 mb-2" />
+
+      {peerOffline.visible && (
+        <PeerOfflineBanner expiresAt={peerOffline.expiresAt} />
+      )}
+
       <div className="md:hidden shrink-0 flex items-center justify-center py-4 bg-white/30 backdrop-blur-sm">
         <IntensityViz intensity={intensity} compact />
       </div>
 
       {/* Chat column */}
       <div className="flex-1 flex flex-col min-h-0 min-w-0 relative">
-        <div className="hidden md:flex shrink-0 items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Pill label="Safety" value={safeWord || "—"} />
+        <div className="hidden md:flex shrink-0 items-center justify-between px-6 py-4 gap-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <SafetyBanner safeWord={safeWord} />
             <Pill label="Room" value={code} mono />
             <Pill label="Role" value={(role || "").toUpperCase()} />
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40">
@@ -331,28 +383,7 @@ export function Chat() {
           className="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-4"
         >
           {messages.length === 0 && connection === "waiting" && (
-            <div className="flex flex-col items-center gap-4 py-12">
-              <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/30">
-                Share Room Code
-              </div>
-              <div
-                className="font-black text-4xl tracking-[0.25em]"
-                style={{ color: BRAND }}
-              >
-                {code}
-              </div>
-              <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
-                等待对方加入…
-              </div>
-              {safeWord && (
-                <div className="inline-flex items-center gap-2 bg-white/60 border border-white/80 px-4 py-2 rounded-full shadow-sm">
-                  <span className="text-[9px] font-black text-black/30 uppercase tracking-[0.2em]">
-                    Safety
-                  </span>
-                  <span className="font-bold text-black text-sm">{safeWord}</span>
-                </div>
-              )}
-            </div>
+            <WaitingPanel code={code} isCreator={isCreator} />
           )}
           {messages.length === 0 && connection === "ready" && (
             <div className="text-center text-[10px] font-black uppercase tracking-[0.25em] text-black/40 py-12">
@@ -479,16 +510,34 @@ export function Chat() {
       {terminatedBanner.visible && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-6">
           <div className="bg-white/90 backdrop-blur-3xl border border-white/80 rounded-[3rem] p-10 max-w-sm text-center shadow-[0_40px_100px_rgba(0,0,0,0.15)]">
-            <div className="inline-flex px-4 py-2 rounded-full bg-black/5 text-[10px] font-black uppercase tracking-[0.25em] text-black/40 mb-4">
-              Session Closed
+            <div
+              className={`inline-flex px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-[0.25em] mb-4 ${
+                terminatedBanner.reason === "error"
+                  ? "bg-red-50 text-red-500"
+                  : "bg-black/5 text-black/40"
+              }`}
+            >
+              {terminatedBanner.reason === "error" ? "Connection Failed" : "Session Closed"}
             </div>
             <div className="text-2xl font-black text-black mb-2">
               {terminatedBanner.reason === "safe_word"
                 ? "会话已安全终止"
-                : "对方已离开"}
+                : terminatedBanner.reason === "peer_left"
+                ? "对方已离开"
+                : "连接失败"}
             </div>
+            {terminatedBanner.reason === "error" && (
+              <div className="font-mono text-xs text-black/60 mb-3 bg-black/5 rounded-lg px-3 py-2">
+                {terminatedBanner.errorCode}
+                {terminatedBanner.errorMessage
+                  ? ` — ${terminatedBanner.errorMessage}`
+                  : ""}
+              </div>
+            )}
             <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
-              2 秒后返回登入页…
+              {terminatedBanner.reason === "error"
+                ? "稍后重试,或检查上一个会话是否还在占用"
+                : "2 秒后返回登入页…"}
             </div>
           </div>
         </div>
@@ -514,6 +563,146 @@ function Pill({ label, value, mono }: PillProps) {
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+interface WaitingPanelProps {
+  code: string;
+  isCreator: boolean;
+}
+
+/**
+ * Empty-state panel shown before peer has joined. Different copy + visual
+ * weight depending on whether this user created the room (they need to
+ * share the code) or joined someone else's (they're waiting for the
+ * creator to come online — likely the creator is still on BtGate).
+ *
+ * For joiners we show a quiet hint after 30 s suggesting the code might
+ * be wrong, since the typical "creator still pairing BT" case resolves
+ * within ~10 s.
+ */
+function WaitingPanel({ code, isCreator }: WaitingPanelProps) {
+  const [waitedTooLong, setWaitedTooLong] = useState(false);
+  useEffect(() => {
+    const id = window.setTimeout(() => setWaitedTooLong(true), 30_000);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  if (isCreator) {
+    return (
+      <div className="flex flex-col items-center gap-4 py-12">
+        <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/30">
+          Share Room Code
+        </div>
+        <div
+          className="font-black text-4xl tracking-[0.25em]"
+          style={{ color: BRAND }}
+        >
+          {code}
+        </div>
+        <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
+          把这个 code 发给对方
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col items-center gap-3 py-12">
+      <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/30">
+        Joining Room
+      </div>
+      <div className="font-black text-3xl tracking-[0.25em] text-black/60">
+        {code}
+      </div>
+      <div className="flex items-center gap-2 mt-1">
+        <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
+          等待对方上线…
+        </span>
+      </div>
+      <div className="text-[11px] text-black/40 mt-2 px-6 text-center max-w-xs leading-relaxed">
+        对方可能还在配对硬件,稍候。
+      </div>
+      {waitedTooLong && (
+        <div className="mt-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-2xl text-[11px] text-yellow-700 font-semibold max-w-xs text-center leading-relaxed">
+          已等待 30 秒,对方还没上线。请确认 code 输入正确,或联系对方重新创建。
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface PeerOfflineBannerProps {
+  expiresAt: number;
+}
+
+/**
+ * Toast-style banner shown while the peer's slot is in grace (their WS
+ * dropped, server holds it for the role-specific timeout). Counts down
+ * the remaining seconds so the user knows when to give up.
+ */
+function PeerOfflineBanner({ expiresAt }: PeerOfflineBannerProps) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, []);
+  const remaining = Math.max(0, Math.ceil((expiresAt - now) / 1000));
+  return (
+    <motion.div
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: -20, opacity: 0 }}
+      className="fixed left-1/2 -translate-x-1/2 top-[max(0.5rem,env(safe-area-inset-top))] z-30 bg-yellow-50 border-2 border-yellow-300 rounded-full px-5 py-2 flex items-center justify-center gap-3 shadow-[0_8px_24px_rgba(202,138,4,0.18)]"
+    >
+      <div className="flex items-center gap-2">
+        <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-700">
+          对方掉线
+        </span>
+      </div>
+      <span className="text-[10px] font-black tracking-[0.2em] text-yellow-700">
+        {remaining}s
+      </span>
+    </motion.div>
+  );
+}
+
+interface SafetyBannerProps {
+  safeWord: string;
+  className?: string;
+}
+
+/**
+ * Always-visible safe-word indicator. Higher emphasis than the other
+ * pills (orange ring + Shield icon + larger value) because the user
+ * may need to invoke it under stress and should never have to look
+ * for it. Lives at the top of both mobile and desktop layouts.
+ */
+function SafetyBanner({ safeWord, className = "" }: SafetyBannerProps) {
+  return (
+    <div
+      className={`inline-flex items-center gap-2.5 bg-white/80 backdrop-blur-xl rounded-full pl-3 pr-5 py-2 shadow-[0_8px_24px_rgba(255,138,61,0.18)] border-2 ${className}`}
+      style={{ borderColor: BRAND }}
+    >
+      <span
+        className="inline-flex w-7 h-7 rounded-full items-center justify-center shrink-0"
+        style={{ backgroundColor: BRAND }}
+      >
+        <Shield size={14} className="text-white" strokeWidth={2.5} />
+      </span>
+      <div className="flex flex-col leading-none">
+        <span
+          className="text-[9px] font-black uppercase tracking-[0.25em]"
+          style={{ color: BRAND }}
+        >
+          Safety · 安全词
+        </span>
+        <span className="font-black text-black text-sm sm:text-base mt-0.5 truncate max-w-[40vw]">
+          {safeWord || "—"}
+        </span>
+      </div>
     </div>
   );
 }

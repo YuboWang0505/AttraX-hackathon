@@ -28,7 +28,10 @@ export type ErrorCode =
 
 export type ServerMsg =
   | { type: "room_ready"; selfRole: Role; peerRole: Role; safeWord: string }
-  | { type: "room_waiting" }
+  // safeWord may already be set when only one slot is filled (e.g. the
+  // creator already pre-registered it). Joiner uses it to populate the
+  // SafetyBanner without waiting for both sides to be online.
+  | { type: "room_waiting"; safeWord: string | null }
   | {
       type: "chat";
       from: Role;
@@ -41,6 +44,13 @@ export type ServerMsg =
     }
   | { type: "safe_word_triggered"; by: Role }
   | { type: "peer_bt_status"; role: Role; status: BtBroadcastStatus }
+  // Peer's WS dropped but we're holding the slot for them — UI should
+  // surface a "peer offline, waiting for reconnect" banner. graceMs is
+  // the role-specific grace window remaining (S=15s, M=60s).
+  | { type: "peer_disconnecting"; role: Role; graceMs: number }
+  // Peer reconnected within the grace window. UI should clear any
+  // disconnect banner. After this, M may want to verify its BT link.
+  | { type: "peer_reconnected"; role: Role }
   | { type: "peer_left" }
   | { type: "error"; code: ErrorCode; message: string }
   | { type: "pong" }

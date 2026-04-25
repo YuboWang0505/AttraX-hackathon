@@ -27,6 +27,8 @@ interface AppState {
   safeWord: string;
   /** True when the user explicitly skipped BT pairing via "演示模式". */
   demoMode: boolean;
+  /** True when this user submitted Login in "Create" mode (vs "Join"). */
+  isCreator: boolean;
   connection: ConnectionStatus;
   messages: ChatMessage[];
   intensity: Intensity;
@@ -37,6 +39,7 @@ interface AppState {
   setCode: (c: string) => void;
   setSafeWord: (w: string) => void;
   setDemoMode: (v: boolean) => void;
+  setIsCreator: (v: boolean) => void;
   setConnection: (s: ConnectionStatus) => void;
 
   appendMessage: (m: ChatMessage) => void;
@@ -50,6 +53,7 @@ export const useStore = create<AppState>((set) => ({
   code: "",
   safeWord: "",
   demoMode: false,
+  isCreator: false,
   connection: "idle",
   messages: [],
   intensity: 0,
@@ -60,6 +64,7 @@ export const useStore = create<AppState>((set) => ({
   setCode: (code) => set({ code }),
   setSafeWord: (safeWord) => set({ safeWord }),
   setDemoMode: (demoMode) => set({ demoMode }),
+  setIsCreator: (isCreator) => set({ isCreator }),
   setConnection: (connection) => set({ connection }),
 
   appendMessage: (m) =>
@@ -85,6 +90,7 @@ export const useStore = create<AppState>((set) => ({
       code: "",
       safeWord: "",
       demoMode: false,
+      isCreator: false,
       connection: "idle",
       messages: [],
       intensity: 0,
