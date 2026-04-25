@@ -430,34 +430,32 @@ function handleClose(room: Room, role: Role, ws: WebSocket): void {
   // stale close events after reconnect replaces the slot)
   if (selfWsOf(room, role) !== ws) return;
 
-  // If the other role is already absent, close the room immediately
+  // Always go through grace, even if peer is absent. Two reasons:
+  //  1. React.StrictMode in dev double-invokes useEffect (mount → cleanup
+  //     → mount). Cleanup triggers a close on a brand-new connection
+  //     before the second mount reconnects ~0ms later. If we tear the
+  //     room down here we lose the precreated safeWord and the second
+  //     mount lands in a fresh empty room.
+  //  2. Real-world flake: client navigates away and immediately back
+  //     (e.g. tab focus change on mobile). Holding the slot for the
+  //     grace window means the safeWord and currentIntensity survive.
   const peer = peerOf(room, role);
-  if (!peer) {
-    console.log(
-      `[rooms] close code=${room.code} role=${role} ` +
-        `peer=absent → closeRoom immediately`,
-    );
-    setWs(room, role, null);
-    closeRoom(room.code);
-    return;
-  }
   console.log(
     `[rooms] close code=${room.code} role=${role} ` +
-      `peer=present → grace ${graceMsFor(role) / 1000}s`,
+      `peer=${peer ? "present" : "absent"} → grace ${graceMsFor(role) / 1000}s`,
   );
 
-  // Tell the peer immediately: "the other side dropped, holding their
-  // slot for grace seconds". This replaces the silent-30s gap where the
-  // remaining user kept getting room_ready and could send messages into
-  // the void. Frontend uses this to render a small banner.
   setDisconnectAt(room, role, Date.now());
-  sendJson(peer, {
-    type: "peer_disconnecting",
-    role,
-    graceMs: graceMsFor(role),
-  });
+  if (peer) {
+    // Inform the remaining user — they should see a "peer offline" banner
+    // and stop expecting messages until the grace window resolves.
+    sendJson(peer, {
+      type: "peer_disconnecting",
+      role,
+      graceMs: graceMsFor(role),
+    });
+  }
   startGraceTimer(room, role);
-  // IMPORTANT: do not send peer_left yet — reconnect may cancel it
 }
 
 // Periodic sweeper for idle rooms

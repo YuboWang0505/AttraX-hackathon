@@ -151,7 +151,12 @@ export function Chat() {
     switch (msg.type) {
       case "room_ready":
         setConnection("ready");
-        if (msg.safeWord && !safeWord) setSafeWord(msg.safeWord);
+        // useStore.getState() reads the latest store value. The closure
+        // version (`safeWord` from destructure) is captured at first
+        // render and would mis-read once the user has navigated.
+        if (msg.safeWord && !useStore.getState().safeWord) {
+          setSafeWord(msg.safeWord);
+        }
         // M announces its current BT status on join so S's badge is accurate
         if (role === "m" && wsRef.current?.isOpen()) {
           wsRef.current.send({ type: "bt_status", status: bt.getStatus() });
@@ -399,6 +404,29 @@ export function Chat() {
             cell is the dice roller (random 1-6 face, uniform across 1/2/3
             intensity). The other three are deterministic keyword-table hits
             for the canonical demo levels. */}
+        {/* M-only safe-word trigger — full-width red bar above the input.
+            Tap once to broadcast the current safe word as a chat message,
+            which goes through the existing pipeline and hits Layer 0
+            (safe-word equality), terminating the session for both peers.
+            Disabled while disconnected / BT interrupted / safeWord empty. */}
+        {role === "m" && (
+          <div className="shrink-0 px-3 sm:px-6 pt-2 sm:pt-3 pb-1">
+            <button
+              onClick={() => sendQuick(safeWord)}
+              disabled={
+                !safeWord || connection !== "ready" || btInterrupted
+              }
+              className="w-full py-3 sm:py-4 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-black tracking-wide shadow-[0_10px_30px_rgba(239,68,68,0.4)] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+              aria-label="发送安全词终止会话"
+            >
+              <Shield size={20} strokeWidth={2.5} />
+              <span className="text-sm sm:text-base">
+                安全词:{safeWord || "—"}
+              </span>
+            </button>
+          </div>
+        )}
+
         {role === "s" && (
           <div className="shrink-0 px-3 sm:px-6 pt-2 sm:pt-3 pb-1 flex flex-wrap gap-1.5 sm:gap-2">
             <button
