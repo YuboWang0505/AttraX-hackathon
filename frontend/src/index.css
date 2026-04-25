@@ -206,8 +206,8 @@ textarea {
   position: relative;
   display: inline-block;
   color: #000;
-  font-family:
-    "PingFang SC", "SF Pro Display", system-ui, sans-serif;
+  /* Inherit body's font-family — same stack other pages use, so hero
+     doesn't render with different metrics from the rest of the app. */
   font-weight: 900;
   line-height: 0.94;
   letter-spacing: -0.015em;
@@ -233,8 +233,7 @@ textarea {
   border-radius: 128px;
   background: #000000;
   color: #ffffff;
-  font-family:
-    "PingFang SC", "SF Pro Display", system-ui, sans-serif;
+  /* Inherit body's font-family so START matches the rest of the app. */
   font-weight: 900;
   font-size: 20px;
   letter-spacing: 0.18em;
@@ -270,13 +269,14 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 12px 18px;
+  padding: 11px 16px;
   background: rgba(255, 255, 255, 0.55);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 18px;
-  min-width: 112px;
+  border-radius: 16px;
+  /* No min-width — badges shrink to fit content + padding so 3 of them can
+     line up in a narrow right column without overflowing. */
 }
 .feature-badge .title {
   color: #1a1a1a;
