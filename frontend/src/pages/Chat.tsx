@@ -1,12 +1,24 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Shield } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { ServerMsg } from "@attrax/shared";
+import { Mic, MicOff, Phone, PhoneOff, Shield } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ClientMsg, ServerMsg } from "@attrax/shared";
 import { BluetoothStatus } from "../components/BluetoothStatus.js";
 import { ChatBubble } from "../components/ChatBubble.js";
 import { IntensityViz } from "../components/IntensityViz.js";
+import { VoiceDial } from "../components/VoiceDial.js";
 import * as bt from "../lib/bluetooth.js";
 import type { BtStatus } from "../lib/bluetooth.js";
+import {
+  startChunkedStt,
+  type ChunkedSttHandle,
+} from "../lib/chunked-stt.js";
+import {
+  feedRemoteSignal,
+  hangup as rtcHangup,
+  isInCall as rtcIsInCall,
+  setMuted as setRtcMuted,
+  startCall,
+} from "../lib/webrtc.js";
 import { connect, type WsHandle } from "../lib/ws.js";
 import { useStore } from "../store.js";
 
@@ -37,6 +49,10 @@ const DICE_FACES: { label: string; text: string; intensity: 1 | 2 | 3 }[] = [
 const DICE_ANIM_MS = 1500;
 const DICE_CYCLE_MS = 110;
 
+// How long a caller's invite waits before auto-timing out. Matches the
+// peer_call_timeout server message budget so both sides give up together.
+const RING_TIMEOUT_MS = 30_000;
+
 export function Chat() {
   const {
     role,
@@ -47,7 +63,9 @@ export function Chat() {
     demoMode,
     isCreator,
     connection,
+    callState,
     setConnection,
+    setCallState,
     appendMessage,
     setSafeWord,
     terminate,
@@ -73,11 +91,21 @@ export function Chat() {
     active: boolean;
     outcomeIdx: number | null;
   }>({ active: false, outcomeIdx: null });
+  /** Voice-call state: mic toggle, STT activity LED, surface error toasts. */
+  const [callMuted, setCallMuted] = useState(false);
+  const [sttListening, setSttListening] = useState(false);
+  const [callError, setCallError] = useState<string | null>(null);
+  /** Seconds elapsed since in_call started — drives the call-screen timer. */
+  const [callElapsed, setCallElapsed] = useState(0);
 
   const wsRef = useRef<WsHandle | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const intensityRef = useRef(intensity);
   intensityRef.current = intensity;
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const sttRef = useRef<ChunkedSttHandle | null>(null);
+  const ringTimerRef = useRef<number | null>(null);
+  const callStartedAtRef = useRef<number>(0);
 
   // Apply intensity to hardware on every change (no-op when not connected)
   useEffect(() => {
@@ -126,6 +154,150 @@ export function Chat() {
     }
   }
 
+  // ---------- Voice call ----------
+
+  const sendClient = useCallback((msg: ClientMsg) => {
+    wsRef.current?.send(msg);
+  }, []);
+
+  const teardownCall = useCallback(() => {
+    if (ringTimerRef.current !== null) {
+      window.clearTimeout(ringTimerRef.current);
+      ringTimerRef.current = null;
+    }
+    if (sttRef.current) {
+      sttRef.current.stop();
+      sttRef.current = null;
+    }
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = null;
+    }
+    setSttListening(false);
+    setCallMuted(false);
+    setCallElapsed(0);
+  }, []);
+
+  const beginRtcSession = useCallback(
+    async (asInitiator: boolean) => {
+      await startCall({
+        asInitiator,
+        sendSignal: sendClient,
+        onLocalStream: (s) => {
+          // Tee into chunked STT — transcripts go through the existing chat
+          // pipeline so voice inherits all safe-word + keyword + LLM behavior.
+          if (sttRef.current) sttRef.current.stop();
+          sttRef.current = startChunkedStt({
+            stream: s,
+            onText: (text) => {
+              if (!wsRef.current?.isOpen()) return;
+              wsRef.current.send({ type: "chat", text });
+            },
+            onListening: setSttListening,
+            onError: (err) => setCallError(err),
+          });
+        },
+        onRemoteStream: (remote) => {
+          if (remoteAudioRef.current) {
+            remoteAudioRef.current.srcObject = remote;
+            void remoteAudioRef.current.play().catch(() => {
+              // Some browsers block autoplay until user gesture; ignore.
+            });
+          }
+        },
+        onEnd: () => {
+          // Peer hung up or RTC errored. Bring state back to idle.
+          teardownCall();
+          setCallState("idle");
+        },
+      });
+    },
+    [sendClient, teardownCall, setCallState],
+  );
+
+  function startOutgoingCall() {
+    if (!wsRef.current?.isOpen()) return;
+    if (useStore.getState().callState !== "idle") return;
+    if (connection !== "ready") return;
+    setCallError(null);
+    setCallState("calling");
+    wsRef.current.send({ type: "call_invite" });
+    if (ringTimerRef.current !== null) {
+      window.clearTimeout(ringTimerRef.current);
+    }
+    ringTimerRef.current = window.setTimeout(() => {
+      if (useStore.getState().callState !== "calling") return;
+      wsRef.current?.send({ type: "call_timeout" });
+      setCallState("idle");
+      setCallError("对方未接听");
+    }, RING_TIMEOUT_MS);
+  }
+
+  function cancelOutgoingCall() {
+    if (ringTimerRef.current !== null) {
+      window.clearTimeout(ringTimerRef.current);
+      ringTimerRef.current = null;
+    }
+    wsRef.current?.send({ type: "call_cancel" });
+    setCallState("idle");
+  }
+
+  async function acceptIncomingCall() {
+    if (useStore.getState().callState !== "ringing") return;
+    setCallError(null);
+    // Set up our SimplePeer (non-initiator) BEFORE telling the caller we
+    // accepted, so we're ready when their SDP offer arrives.
+    try {
+      await beginRtcSession(false);
+    } catch (err) {
+      console.warn("[call] accept failed:", err);
+      setCallError("无法启动通话(检查麦克风权限)");
+      setCallState("idle");
+      wsRef.current?.send({ type: "call_reject" });
+      return;
+    }
+    callStartedAtRef.current = Date.now();
+    setCallElapsed(0);
+    setCallState("in_call");
+    wsRef.current?.send({ type: "call_accept" });
+  }
+
+  function rejectIncomingCall() {
+    wsRef.current?.send({ type: "call_reject" });
+    setCallState("idle");
+  }
+
+  function endCall() {
+    // User-initiated hangup. Notify peer, then tear down local.
+    if (rtcIsInCall()) rtcHangup(true, sendClient);
+    teardownCall();
+    setCallState("idle");
+  }
+
+  function toggleMute() {
+    const next = !callMuted;
+    setCallMuted(next);
+    setRtcMuted(next);
+    sttRef.current?.setMuted(next);
+  }
+
+  // Tick the in-call timer once per second.
+  useEffect(() => {
+    if (callState !== "in_call") return;
+    const id = window.setInterval(() => {
+      setCallElapsed(
+        Math.floor((Date.now() - callStartedAtRef.current) / 1000),
+      );
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [callState]);
+
+  // Auto-dismiss the callError toast so it doesn't linger.
+  useEffect(() => {
+    if (!callError) return;
+    const id = window.setTimeout(() => setCallError(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [callError]);
+
   // WebSocket lifecycle
   useEffect(() => {
     if (!role || !code) return;
@@ -142,6 +314,9 @@ export function Chat() {
     wsRef.current = handle;
 
     return () => {
+      // Tear down any active call so the mic + RTC peer don't leak on unmount.
+      if (rtcIsInCall()) rtcHangup(false);
+      teardownCall();
       handle.close();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -186,6 +361,9 @@ export function Chat() {
         });
         return;
       case "safe_word_triggered":
+        if (rtcIsInCall()) rtcHangup(false);
+        teardownCall();
+        setCallState("idle");
         setTerminatedBanner({ visible: true, reason: "safe_word" });
         terminate();
         void bt.writeIntensity(0);
@@ -195,6 +373,9 @@ export function Chat() {
         }, 2000);
         return;
       case "peer_left":
+        if (rtcIsInCall()) rtcHangup(false);
+        teardownCall();
+        setCallState("idle");
         setPeerOffline({ visible: false, expiresAt: 0 });
         setTerminatedBanner({ visible: true, reason: "peer_left" });
         terminate();
@@ -249,6 +430,64 @@ export function Chat() {
           setRolling((r) => (r.active ? { active: false, outcomeIdx: null } : r));
         }, DICE_ANIM_MS);
         return;
+      case "peer_call_invite":
+        if (useStore.getState().callState !== "idle") {
+          // Already busy — auto-reject so the caller doesn't hang.
+          wsRef.current?.send({ type: "call_reject" });
+          return;
+        }
+        setCallError(null);
+        setCallState("ringing");
+        return;
+      case "peer_call_accept":
+        if (useStore.getState().callState !== "calling") return;
+        if (ringTimerRef.current !== null) {
+          window.clearTimeout(ringTimerRef.current);
+          ringTimerRef.current = null;
+        }
+        // Caller now starts as initiator → SimplePeer creates SDP offer
+        // immediately, which gets relayed to the callee via rtc_offer.
+        beginRtcSession(true)
+          .then(() => {
+            callStartedAtRef.current = Date.now();
+            setCallElapsed(0);
+            setCallState("in_call");
+          })
+          .catch((err) => {
+            console.warn("[call] caller startCall failed:", err);
+            setCallError("无法启动通话(检查麦克风权限)");
+            setCallState("idle");
+            wsRef.current?.send({ type: "rtc_hangup" });
+          });
+        return;
+      case "peer_call_reject":
+        if (ringTimerRef.current !== null) {
+          window.clearTimeout(ringTimerRef.current);
+          ringTimerRef.current = null;
+        }
+        setCallState("idle");
+        setCallError("对方拒绝了通话");
+        return;
+      case "peer_call_cancel":
+        setCallState("idle");
+        return;
+      case "peer_call_timeout":
+        if (ringTimerRef.current !== null) {
+          window.clearTimeout(ringTimerRef.current);
+          ringTimerRef.current = null;
+        }
+        setCallState("idle");
+        return;
+      case "peer_rtc_offer":
+      case "peer_rtc_answer":
+      case "peer_rtc_ice":
+        feedRemoteSignal(msg);
+        return;
+      case "peer_rtc_hangup":
+        feedRemoteSignal(msg);
+        teardownCall();
+        setCallState("idle");
+        return;
     }
   }
 
@@ -291,6 +530,9 @@ export function Chat() {
   }
 
   async function handleLeave() {
+    if (rtcIsInCall()) rtcHangup(false);
+    teardownCall();
+    setCallState("idle");
     wsRef.current?.leave();
     try {
       await bt.writeIntensity(0);
@@ -319,9 +561,9 @@ export function Chat() {
       <div className="mesh-bg" />
       <div className="mesh-glow" />
 
-      {/* Mobile header — Room + BT + 退出 */}
-      <div className="md:hidden shrink-0 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-full px-4 py-2 shadow-sm">
+      {/* Mobile header — Room + BT + 通话 + 退出 */}
+      <div className="md:hidden shrink-0 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-full px-3 py-2 shadow-sm">
           <span className="text-[9px] font-black text-black/30 uppercase tracking-[0.2em]">
             Room
           </span>
@@ -334,6 +576,17 @@ export function Chat() {
             <BluetoothStatus />
           ) : (
             <BluetoothStatus status={peerBtStatus} peer />
+          )}
+          {callState === "idle" && (
+            <button
+              onClick={startOutgoingCall}
+              disabled={connection !== "ready"}
+              className="w-9 h-9 rounded-full text-white flex items-center justify-center shadow-[0_8px_20px_rgba(255,138,61,0.35)] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ backgroundColor: BRAND }}
+              aria-label="开始通话"
+            >
+              <Phone size={15} strokeWidth={2.5} />
+            </button>
           )}
           <button
             onClick={handleLeave}
@@ -373,6 +626,18 @@ export function Chat() {
               <BluetoothStatus />
             ) : (
               <BluetoothStatus status={peerBtStatus} peer />
+            )}
+            {callState === "idle" && (
+              <button
+                onClick={startOutgoingCall}
+                disabled={connection !== "ready"}
+                className="text-[10px] font-black uppercase tracking-[0.2em] text-white px-4 py-2 rounded-full hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+                style={{ backgroundColor: BRAND }}
+                aria-label="开始通话"
+              >
+                <Phone size={13} strokeWidth={2.5} />
+                Call
+              </button>
             )}
             <button
               onClick={handleLeave}
@@ -502,6 +767,43 @@ export function Chat() {
       </div>
 
       <DiceOverlay state={rolling} />
+
+      {/* Hidden remote-audio sink — webrtc.ts attaches the peer's MediaStream
+          here once the call is connected. autoPlay + playsInline so iOS
+          Safari can resume audio inline without user gesture. */}
+      <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
+
+      <AnimatePresence>
+        {(callState === "calling" || callState === "ringing") && (
+          <RingingOverlay
+            direction={callState === "calling" ? "outgoing" : "incoming"}
+            onCancel={cancelOutgoingCall}
+            onAccept={acceptIncomingCall}
+            onReject={rejectIncomingCall}
+          />
+        )}
+        {callState === "in_call" && (
+          <InCallOverlay
+            intensity={intensity}
+            recording={sttListening}
+            muted={callMuted}
+            onToggleMute={toggleMute}
+            onHangup={endCall}
+            elapsed={callElapsed}
+          />
+        )}
+      </AnimatePresence>
+
+      {callError && (
+        <motion.div
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -20, opacity: 0 }}
+          className="fixed left-1/2 -translate-x-1/2 top-[max(4rem,calc(env(safe-area-inset-top)+3rem))] z-[60] bg-black/85 text-white text-xs font-bold rounded-full px-5 py-2.5 shadow-[0_15px_40px_rgba(0,0,0,0.3)]"
+        >
+          {callError}
+        </motion.div>
+      )}
 
       {/* BT interrupted overlay (M side only, non-demo) */}
       {btInterrupted && !terminatedBanner.visible && (
@@ -732,6 +1034,180 @@ function SafetyBanner({ safeWord, className = "" }: SafetyBannerProps) {
         </span>
       </div>
     </div>
+  );
+}
+
+interface RingingOverlayProps {
+  direction: "outgoing" | "incoming";
+  onCancel?: () => void;
+  onAccept?: () => void;
+  onReject?: () => void;
+}
+
+/**
+ * Pre-call modal — caller sees "正在呼叫…" with a Cancel button; callee sees
+ * "对方呼叫" with Accept / Reject. Microphones are NOT opened until the
+ * callee actually accepts (WeChat / Feishu-style pattern).
+ */
+function RingingOverlay({
+  direction,
+  onCancel,
+  onAccept,
+  onReject,
+}: RingingOverlayProps) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-6"
+    >
+      <div className="mesh-bg" />
+      <div className="mesh-glow" />
+      <motion.div
+        initial={{ scale: 0.92, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.92, opacity: 0 }}
+        className="relative bg-white/85 backdrop-blur-3xl border border-white/80 rounded-[3rem] p-8 sm:p-10 max-w-sm w-full text-center shadow-[0_40px_100px_rgba(0,0,0,0.15)]"
+      >
+        <motion.div
+          animate={{ scale: [1, 1.08, 1] }}
+          transition={{ duration: 1.3, repeat: Infinity }}
+          className="inline-flex w-20 h-20 rounded-full items-center justify-center mb-6"
+          style={{ backgroundColor: BRAND }}
+        >
+          <Phone size={32} className="text-white" strokeWidth={2.5} />
+        </motion.div>
+        <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40 mb-2">
+          {direction === "outgoing" ? "Outgoing Call" : "Incoming Call"}
+        </div>
+        <div className="text-2xl font-black text-black mb-8">
+          {direction === "outgoing" ? "正在呼叫…" : "对方呼叫"}
+        </div>
+        {direction === "outgoing" ? (
+          <button
+            onClick={onCancel}
+            className="w-full h-14 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-black text-sm tracking-wide shadow-[0_15px_40px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2"
+          >
+            <PhoneOff size={18} strokeWidth={2.5} />
+            取消
+          </button>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={onReject}
+              className="h-14 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-black text-sm shadow-[0_10px_30px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2"
+            >
+              <PhoneOff size={18} strokeWidth={2.5} />
+              拒绝
+            </button>
+            <button
+              onClick={onAccept}
+              className="h-14 rounded-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-black text-sm shadow-[0_10px_30px_rgba(34,197,94,0.4)] flex items-center justify-center gap-2"
+            >
+              <Phone size={18} strokeWidth={2.5} />
+              接听
+            </button>
+          </div>
+        )}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+interface InCallOverlayProps {
+  intensity: import("@attrax/shared").Intensity;
+  recording: boolean;
+  muted: boolean;
+  onToggleMute: () => void;
+  onHangup: () => void;
+  elapsed: number;
+}
+
+/**
+ * In-call screen — circular VoiceDial driven by current intensity, status
+ * pill (Listening / Muted / Live + mm:ss), mute + hangup controls. The
+ * dial size adapts once at mount based on viewport so it fits both phone
+ * and desktop without needing a resize listener.
+ */
+function InCallOverlay({
+  intensity,
+  recording,
+  muted,
+  onToggleMute,
+  onHangup,
+  elapsed,
+}: InCallOverlayProps) {
+  const dialSize = useMemo(() => {
+    if (typeof window === "undefined") return 320;
+    return Math.floor(
+      Math.min(380, window.innerWidth - 64, window.innerHeight * 0.55),
+    );
+  }, []);
+  const mm = Math.floor(elapsed / 60).toString().padStart(2, "0");
+  const ss = (elapsed % 60).toString().padStart(2, "0");
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center p-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+    >
+      <div className="mesh-bg" />
+      <div className="mesh-glow" />
+
+      <div className="absolute top-[max(1rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 inline-flex items-center gap-2 bg-white/70 backdrop-blur-xl border border-white/80 rounded-full px-4 py-2 shadow-sm">
+        <span
+          className={`inline-block w-2 h-2 rounded-full ${
+            muted
+              ? "bg-red-500"
+              : recording
+              ? "bg-green-500 animate-pulse"
+              : "bg-yellow-500"
+          }`}
+        />
+        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-black/60">
+          {muted ? "Muted" : recording ? "Listening" : "Live"}
+        </span>
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40 tabular-nums">
+          {mm}:{ss}
+        </span>
+      </div>
+
+      <div className="relative my-auto flex items-center justify-center">
+        <VoiceDial
+          intensity={intensity}
+          active={!muted}
+          recording={recording && !muted}
+          size={dialSize}
+        />
+      </div>
+
+      <div className="relative flex items-center justify-center gap-6 sm:gap-8 mt-6">
+        <button
+          onClick={onToggleMute}
+          className={`w-16 h-16 rounded-full flex items-center justify-center shadow-[0_15px_40px_rgba(0,0,0,0.15)] active:scale-95 transition-all ${
+            muted
+              ? "bg-white/60 border border-white/80"
+              : "bg-white border border-white/80"
+          }`}
+          aria-label={muted ? "取消静音" : "静音"}
+        >
+          {muted ? (
+            <MicOff size={24} className="text-red-500" strokeWidth={2.5} />
+          ) : (
+            <Mic size={24} className="text-black" strokeWidth={2.5} />
+          )}
+        </button>
+        <button
+          onClick={onHangup}
+          className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 flex items-center justify-center shadow-[0_20px_50px_rgba(239,68,68,0.45)] active:scale-95 transition-all"
+          aria-label="挂断"
+        >
+          <PhoneOff size={32} className="text-white" strokeWidth={2.5} />
+        </button>
+      </div>
+    </motion.div>
   );
 }
 

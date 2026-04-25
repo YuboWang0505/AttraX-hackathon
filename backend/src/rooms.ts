@@ -368,6 +368,83 @@ async function handleMessage(room: Room, role: Role, msg: ClientMsg): Promise<vo
       return;
     }
 
+    case "call_invite": {
+      // Gate on bothReady so a call invite never races ahead of pairing.
+      if (!bothReady(room)) return;
+      sendJson(peerOf(room, role), { type: "peer_call_invite", from: role });
+      return;
+    }
+
+    case "call_accept": {
+      sendJson(peerOf(room, role), { type: "peer_call_accept" });
+      return;
+    }
+
+    case "call_reject": {
+      sendJson(peerOf(room, role), { type: "peer_call_reject" });
+      return;
+    }
+
+    case "call_cancel": {
+      sendJson(peerOf(room, role), { type: "peer_call_cancel" });
+      return;
+    }
+
+    case "call_timeout": {
+      sendJson(peerOf(room, role), { type: "peer_call_timeout" });
+      return;
+    }
+
+    case "rtc_offer": {
+      sendJson(peerOf(room, role), { type: "peer_rtc_offer", sdp: msg.sdp });
+      return;
+    }
+
+    case "rtc_answer": {
+      sendJson(peerOf(room, role), { type: "peer_rtc_answer", sdp: msg.sdp });
+      return;
+    }
+
+    case "rtc_ice": {
+      sendJson(peerOf(room, role), {
+        type: "peer_rtc_ice",
+        candidate: msg.candidate,
+      });
+      return;
+    }
+
+    case "rtc_hangup": {
+      sendJson(peerOf(room, role), { type: "peer_rtc_hangup" });
+      return;
+    }
+
+    case "emergency_stop": {
+      // Routed through the same termination path as a typed safe word:
+      // broadcast safe_word_triggered + close both sockets + closeRoom.
+      // Bypasses STT / LLM (panic button must work even if pipeline is
+      // wedged or the user can't speak clearly), but never bypasses the
+      // safe-word semantics that the rest of the system relies on.
+      const broadcast: ServerMsg = { type: "safe_word_triggered", by: role };
+      sendJson(room.sWs, broadcast);
+      sendJson(room.mWs, broadcast);
+      if (room.sWs && room.sWs.readyState === room.sWs.OPEN) {
+        try {
+          room.sWs.close();
+        } catch {
+          // ignore
+        }
+      }
+      if (room.mWs && room.mWs.readyState === room.mWs.OPEN) {
+        try {
+          room.mWs.close();
+        } catch {
+          // ignore
+        }
+      }
+      closeRoom(room.code);
+      return;
+    }
+
     case "chat": {
       if (!bothReady(room)) return;
       // Assign seq_id synchronously BEFORE any await — preserves send order.

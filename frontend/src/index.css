@@ -85,6 +85,44 @@ textarea {
   pointer-events: none;
 }
 
+/* ---------- Circular voice dial (in-call screen) ---------- */
+.dial {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: #ffffff;
+  border-radius: 9999px;
+  box-shadow: 0 4px 66px rgba(79, 79, 79, 0.25);
+}
+.dial .tick {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 20px;
+  background: #787878;
+  transform-origin: 50% 100%;
+  margin-left: -1px;
+}
+.dial-record {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 9999px;
+  background: #e50000;
+  box-shadow: inset 0 0.5px 1.2px rgba(0, 0, 0, 0.25);
+}
+@keyframes halo-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes record-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.2); }
+}
+
 /* iMessage-style bubble tail (rotated square, inherits bubble bg) */
 .bubble-tail-left,
 .bubble-tail-right {

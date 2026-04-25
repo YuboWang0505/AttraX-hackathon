@@ -86,10 +86,10 @@ export function Login() {
           <motion.h1
             initial={{ y: -10 }}
             animate={{ y: 0 }}
-            className="text-5xl sm:text-6xl font-black tracking-tighter mb-3 sm:mb-4"
+            className="text-2xl sm:text-3xl font-black tracking-tighter mb-3 sm:mb-4 whitespace-nowrap"
             style={{ color: BRAND }}
           >
-            AttraX
+            Synesthesia Lab
           </motion.h1>
           <div className="inline-flex px-4 py-2 rounded-full bg-black/5 text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
             Remote interaction

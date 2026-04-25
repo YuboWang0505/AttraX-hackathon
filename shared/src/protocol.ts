@@ -10,6 +10,14 @@ export type BtBroadcastStatus =
   | "offline"
   | "error";
 
+/** Minimal subset of RTCIceCandidateInit we relay (structured-clone safe). */
+export interface RelayIceCandidate {
+  candidate?: string;
+  sdpMid?: string | null;
+  sdpMLineIndex?: number | null;
+  usernameFragment?: string | null;
+}
+
 export type ClientMsg =
   | { type: "set_safe_word"; word: string }
   | { type: "chat"; text: string }
@@ -18,7 +26,25 @@ export type ClientMsg =
   | { type: "ping" }
   // S rolls an intensity die; server fans out so M can play the same
   // animation in sync. Outcome follows as a normal chat message.
-  | { type: "roll_start" };
+  | { type: "roll_start" }
+  // Voice call (v2) — application-layer ringing protocol. Both sides agree
+  // via invite/accept BEFORE any SDP is generated, so the microphone only
+  // opens once the callee has actually picked up (WeChat / Feishu-style).
+  | { type: "call_invite" }
+  | { type: "call_accept" }
+  | { type: "call_reject" }
+  | { type: "call_cancel" }
+  | { type: "call_timeout" }
+  // WebRTC signaling relayed transparently to peer. Only sent after the
+  // call has been accepted on both sides.
+  | { type: "rtc_offer"; sdp: string }
+  | { type: "rtc_answer"; sdp: string }
+  | { type: "rtc_ice"; candidate: RelayIceCandidate }
+  | { type: "rtc_hangup" }
+  // One-tap emergency stop from a big red button. Routed through the
+  // same path as a typed safe word, so all disconnect/grace logic stays
+  // intact — pipeline just bypasses STT / LLM.
+  | { type: "emergency_stop" };
 
 export type ErrorCode =
   | "ROOM_FULL"
@@ -56,4 +82,15 @@ export type ServerMsg =
   | { type: "pong" }
   // Peer started rolling a die — show the same animation locally. The
   // selected face arrives later as a normal chat message.
-  | { type: "peer_roll_start" };
+  | { type: "peer_roll_start" }
+  // Ringing protocol relays.
+  | { type: "peer_call_invite"; from: Role }
+  | { type: "peer_call_accept" }
+  | { type: "peer_call_reject" }
+  | { type: "peer_call_cancel" }
+  | { type: "peer_call_timeout" }
+  // WebRTC signaling relays — server passes these through from the other role.
+  | { type: "peer_rtc_offer"; sdp: string }
+  | { type: "peer_rtc_answer"; sdp: string }
+  | { type: "peer_rtc_ice"; candidate: RelayIceCandidate }
+  | { type: "peer_rtc_hangup" };
