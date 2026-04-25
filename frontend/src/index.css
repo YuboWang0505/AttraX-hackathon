@@ -123,6 +123,171 @@ textarea {
   50% { opacity: 0.55; transform: scale(1.2); }
 }
 
+/* ---------- Aurora / orb background (Landing page) ---------- */
+.aurora {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.aurora::before,
+.aurora::after,
+.aurora > .orb {
+  content: "";
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+}
+.aurora::before {
+  left: -18%;
+  top: -10%;
+  width: 60vmax;
+  height: 60vmax;
+  background: #ff8832;
+  filter: blur(160px);
+  opacity: 0.5;
+  animation: orb-drift 16s ease-in-out infinite;
+}
+.aurora::after {
+  right: -15%;
+  bottom: -18%;
+  width: 70vmax;
+  height: 70vmax;
+  background: #dd6c86;
+  filter: blur(200px);
+  opacity: 0.4;
+  animation: orb-drift-2 22s ease-in-out infinite;
+}
+.aurora .orb.lilac {
+  left: 30%;
+  top: -20%;
+  width: 55vmax;
+  height: 55vmax;
+  background: #cac2e6;
+  filter: blur(180px);
+  opacity: 0.55;
+  animation: orb-drift 20s ease-in-out infinite reverse;
+}
+.aurora .orb.peach {
+  right: 20%;
+  top: 30%;
+  width: 45vmax;
+  height: 45vmax;
+  background: #f4a368;
+  filter: blur(160px);
+  opacity: 0.45;
+  animation: orb-drift-2 18s ease-in-out infinite;
+}
+.aurora .orb.sky {
+  left: 5%;
+  bottom: 5%;
+  width: 50vmax;
+  height: 50vmax;
+  background: #a2d7f4;
+  filter: blur(220px);
+  opacity: 0.32;
+  animation: orb-drift 24s ease-in-out infinite;
+}
+.aurora-dark::before { opacity: 0.68; }
+.aurora-dark::after { opacity: 0.58; }
+
+@keyframes orb-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(30px, -40px, 0) scale(1.08); }
+}
+@keyframes orb-drift-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-40px, 30px, 0) scale(1.06); }
+}
+
+/* ---------- Synesthesia echo hero — responsive via clamp() ---------- */
+.synth-echo {
+  position: relative;
+  display: inline-block;
+  color: #000;
+  font-family:
+    "PingFang SC", "SF Pro Display", system-ui, sans-serif;
+  font-weight: 900;
+  line-height: 0.94;
+  letter-spacing: -0.015em;
+  font-size: clamp(38px, 8.5vw, 108px);
+}
+.synth-echo > span.ghost {
+  position: absolute;
+  inset: 0;
+  color: rgba(255, 255, 255, 0.21);
+  pointer-events: none;
+  transform: translate(var(--tx, 0), var(--ty, 0));
+  mix-blend-mode: screen;
+}
+
+/* ---------- START / black CTA pill — responsive ---------- */
+.btn-start {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  height: 60px;
+  padding: 0 18px 0 32px;
+  border-radius: 128px;
+  background: #000000;
+  color: #ffffff;
+  font-family:
+    "PingFang SC", "SF Pro Display", system-ui, sans-serif;
+  font-weight: 900;
+  font-size: 20px;
+  letter-spacing: 0.18em;
+  transition: transform 0.15s ease;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+.btn-start:hover { transform: translateY(-2px); }
+.btn-start:active { transform: translateY(1px); }
+.btn-start .arrow {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  background: #ff8832;
+  align-items: center;
+  justify-content: center;
+  color: #000;
+  flex-shrink: 0;
+}
+@media (min-width: 768px) {
+  .btn-start {
+    gap: 44px;
+    height: 88px;
+    padding: 0 22px 0 48px;
+    font-size: 28px;
+    letter-spacing: 0.22em;
+  }
+  .btn-start .arrow { width: 50px; height: 50px; }
+}
+
+/* ---------- Feature badge (Landing landscape feature row) ---------- */
+.feature-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 18px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 18px;
+  min-width: 112px;
+}
+.feature-badge .title {
+  color: #1a1a1a;
+  font-size: 15px;
+  font-weight: 700;
+}
+.feature-badge .desc {
+  color: #4a4a4a;
+  font-size: 12px;
+}
+
 /* iMessage-style bubble tail (rotated square, inherits bubble bg) */
 .bubble-tail-left,
 .bubble-tail-right {

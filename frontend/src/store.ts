@@ -1,7 +1,7 @@
 import type { Intensity, Role } from "@attrax/shared";
 import { create } from "zustand";
 
-export type Page = "login" | "bt_gate" | "chat" | "terminated";
+export type Page = "landing" | "login" | "bt_gate" | "chat" | "terminated";
 
 export interface ChatMessage {
   id: string;
@@ -59,7 +59,10 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
-  page: "login",
+  // Cold-start lands on the marketing hero. resetSession returns to "login"
+  // (not "landing") so a user who just terminated a session doesn't have to
+  // re-watch the hero before re-entering.
+  page: "landing",
   role: null,
   code: "",
   safeWord: "",
