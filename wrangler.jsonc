@@ -1,0 +1,10 @@
+{
+  // Cloudflare Pages config — tells Workers Builds that this is a Pages
+  // project (static assets only), not a Worker. Without this, the auto
+  // pipeline runs `wrangler deploy` from the workspace root and bails
+  // with "Wrangler application detection logic has been run in the root
+  // of a workspace".
+  "name": "attrax",
+  "compatibility_date": "2026-04-25",
+  "pages_build_output_dir": "frontend/dist"
+}
