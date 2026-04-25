@@ -1,13 +1,27 @@
 // Resolves the backend base URL across dev and prod.
 //
-// Dev: VITE_BACKEND_URL is unset → relative paths "/api/..." and "/ws" go
-// through the Vite proxy in vite.config.ts to localhost:3001.
-//
-// Prod (Cloudflare Pages frontend → Render backend): set VITE_BACKEND_URL
-// to e.g. "https://attrax-backend.onrender.com" at build time. Both HTTP
-// and WS URLs derive from this single value.
+// Resolution order:
+//   1. VITE_BACKEND_URL env var (build-time, if Cloudflare Pages picks it up)
+//   2. Hardcoded production fallback when running on a non-localhost host
+//      (e.g. *.pages.dev). Keeps deployment working even if the env var
+//      doesn't get injected.
+//   3. Empty string in dev → relative paths go through Vite's proxy.
 
-const RAW = (import.meta.env.VITE_BACKEND_URL ?? "").replace(/\/$/, "");
+const PROD_BACKEND_URL = "https://attrax-backend.onrender.com";
+
+function resolveBackendBase(): string {
+  const env = (import.meta.env.VITE_BACKEND_URL ?? "").replace(/\/$/, "");
+  if (env) return env;
+  // Browser-side fallback: any non-localhost host → assume prod backend
+  if (typeof window !== "undefined") {
+    const h = window.location.hostname;
+    const isLocal = h === "localhost" || h === "127.0.0.1" || h.startsWith("192.168.") || h.endsWith(".local");
+    if (!isLocal) return PROD_BACKEND_URL;
+  }
+  return "";
+}
+
+const RAW = resolveBackendBase();
 
 export function backendUrl(path: string): string {
   return `${RAW}${path}`;
