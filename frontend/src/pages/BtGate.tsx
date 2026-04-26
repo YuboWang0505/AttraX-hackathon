@@ -59,7 +59,7 @@ export function BtGate() {
         {/* Header — same rhythm as Login: pill tag + huge value + soft sub */}
         <div className="text-center mb-8 sm:mb-12">
           <div className="inline-flex px-4 py-2 rounded-full bg-black/5 text-[10px] font-black uppercase tracking-[0.25em] text-black/40 mb-4 sm:mb-6">
-            Room Ready
+            {t("bt.room.ready")}
           </div>
           <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
             <span
@@ -76,7 +76,7 @@ export function BtGate() {
           {safeWord && (
             <div className="mt-4 sm:mt-5 inline-flex items-center gap-2 bg-white/60 border border-white/80 px-4 py-2 rounded-full shadow-sm">
               <span className="text-[9px] font-black text-black/30 uppercase tracking-[0.2em]">
-                Safety
+                {t("bt.safety.label")}
               </span>
               <span className="font-bold text-black text-sm">{safeWord}</span>
             </div>
@@ -85,8 +85,7 @@ export function BtGate() {
 
         {!supports && (
           <div className="mb-5 sm:mb-6 bg-red-50 border border-red-200 rounded-[1.5rem] sm:rounded-[2rem] px-4 sm:px-5 py-3 sm:py-4 text-xs text-red-600 font-semibold leading-relaxed">
-            当前浏览器不支持 Web Bluetooth(需 Chrome / Edge 108+ 且
-            HTTPS 或 localhost)。请换浏览器或用演示模式。
+            {t("bt.unsupported")}
           </div>
         )}
 
@@ -107,12 +106,12 @@ export function BtGate() {
           <Bluetooth size={22} className="sm:hidden" />
           <Bluetooth size={24} className="hidden sm:block" />
           {connected
-            ? "HARDWARE READY"
+            ? t("bt.btn.cta.ready")
             : connecting
-            ? "CONNECTING..."
+            ? t("bt.btn.cta.connecting")
             : failed
-            ? "RETRY CONNECT"
-            : "CONNECT DEVICE"}
+            ? t("bt.btn.cta.retry")
+            : t("bt.btn.cta.connect")}
         </motion.button>
 
         {/* Status row */}
@@ -147,14 +146,14 @@ export function BtGate() {
             }
           >
             {connected
-              ? "已连硬件"
+              ? t("bt.status.connected")
               : connecting
-              ? "连接中…"
+              ? t("bt.status.connecting")
               : failed
-              ? "连接失败,请检查硬件后重试"
+              ? t("bt.status.failed")
               : status === "offline"
-              ? "演示模式"
-              : "未连接"}
+              ? t("bt.status.demo")
+              : t("bt.status.disconnected")}
           </span>
         </div>
 

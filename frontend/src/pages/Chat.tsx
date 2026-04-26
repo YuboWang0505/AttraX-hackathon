@@ -259,7 +259,7 @@ export function Chat() {
       if (useStore.getState().callState !== "calling") return;
       wsRef.current?.send({ type: "call_timeout" });
       setCallState("idle");
-      setCallError("对方未接听");
+      setCallError(t("chat.call.err.no_answer"));
     }, RING_TIMEOUT_MS);
   }
 
@@ -281,7 +281,7 @@ export function Chat() {
       await beginRtcSession(false);
     } catch (err) {
       console.warn("[call] accept failed:", err);
-      setCallError("无法启动通话(检查麦克风权限)");
+      setCallError(t("chat.call.err.mic"));
       setCallState("idle");
       wsRef.current?.send({ type: "call_reject" });
       return;
@@ -486,7 +486,7 @@ export function Chat() {
           })
           .catch((err) => {
             console.warn("[call] caller startCall failed:", err);
-            setCallError("无法启动通话(检查麦克风权限)");
+            setCallError(t("chat.call.err.mic"));
             setCallState("idle");
             wsRef.current?.send({ type: "rtc_hangup" });
           });
@@ -497,7 +497,7 @@ export function Chat() {
           ringTimerRef.current = null;
         }
         setCallState("idle");
-        setCallError("对方拒绝了通话");
+        setCallError(t("chat.call.err.rejected"));
         return;
       case "peer_call_cancel":
         setCallState("idle");
@@ -580,12 +580,12 @@ export function Chat() {
   }
 
   const statusText = useMemo(() => {
-    if (connection === "waiting") return "等待对方加入…";
-    if (connection === "ready") return "已连接";
-    if (connection === "disconnected") return "已断开";
-    if (connection === "terminated") return "已终止";
-    return "连接中…";
-  }, [connection]);
+    if (connection === "waiting") return t("chat.status.waiting");
+    if (connection === "ready") return t("chat.status.ready");
+    if (connection === "disconnected") return t("chat.status.disconnected");
+    if (connection === "terminated") return t("chat.status.terminated");
+    return t("chat.status.connecting");
+  }, [connection, t]);
 
   return (
     <div className="h-full flex flex-col md:flex-row text-black overflow-hidden relative">
@@ -596,7 +596,7 @@ export function Chat() {
       <div className="md:hidden shrink-0 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-full pl-3 pr-1 py-1 shadow-sm">
           <span className="text-[9px] font-black text-black/30 uppercase tracking-[0.2em]">
-            Room
+            {t("chat.pill.room")}
           </span>
           <span className="font-bold text-black text-xs tracking-[0.15em]">
             {code}
@@ -660,10 +660,10 @@ export function Chat() {
           <div className="flex items-center gap-3 flex-wrap">
             <SafetyBanner safeWord={safeWord} />
             <div className="inline-flex items-center gap-1">
-              <Pill label="Room" value={code} mono />
+              <Pill label={t("chat.pill.room")} value={code} mono />
               <CopyCode code={code} size={14} />
             </div>
-            <Pill label="Role" value={(role || "").toUpperCase()} />
+            <Pill label={t("chat.pill.role")} value={(role || "").toUpperCase()} />
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40">
               {statusText}
             </span>
@@ -800,10 +800,10 @@ export function Chat() {
             disabled={connection !== "ready" || btInterrupted}
             placeholder={
               btInterrupted
-                ? language === "en" ? "Device disconnected. Reconnect to send." : "硬件已断开,请重连"
+                ? t("chat.input.bt.disconnected")
                 : connection === "ready"
                 ? t("chat.input.placeholder")
-                : language === "en" ? "Connecting..." : "等待连接…"
+                : t("chat.input.connecting")
             }
             className="flex-1 min-w-0 bg-black text-white placeholder:text-white/30 rounded-full px-5 sm:px-6 py-4 sm:py-5 text-sm font-bold focus:outline-none focus:ring-8 focus:ring-[#FF8A3D]/10 shadow-[0_15px_40px_rgba(0,0,0,0.15)] disabled:opacity-40"
             maxLength={200}
@@ -872,13 +872,11 @@ export function Chat() {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-40 p-6">
           <div className="bg-white/90 backdrop-blur-3xl border border-white/80 rounded-[3rem] p-10 max-w-sm w-full text-center space-y-5 shadow-[0_40px_100px_rgba(0,0,0,0.15)]">
             <div className="inline-flex px-4 py-2 rounded-full bg-red-50 text-[10px] font-black uppercase tracking-[0.25em] text-red-500">
-              Bluetooth Lost
+              {t("chat.bt.lost.label")}
             </div>
-            <div className="text-2xl font-black text-black">蓝牙已断开</div>
+            <div className="text-2xl font-black text-black">{t("chat.bt.lost.title")}</div>
             <div className="text-sm font-semibold text-black/50 leading-relaxed">
-              硬件跳蛋的连接丢失。聊天已暂停。
-              <br />
-              请重新连接硬件或退出会话。
+              {t("chat.bt.lost.desc")}
             </div>
             <motion.button
               whileTap={{ scale: 0.98 }}
@@ -886,13 +884,13 @@ export function Chat() {
               disabled={btReconnecting}
               className="w-full h-16 rounded-full bg-black text-white text-sm font-black shadow-[0_15px_40px_rgba(0,0,0,0.2)] disabled:opacity-50"
             >
-              {btReconnecting ? "连接中…" : "重新连接硬件"}
+              {btReconnecting ? t("chat.bt.btn.connecting") : t("chat.bt.btn.reconnect")}
             </motion.button>
             <button
               onClick={handleLeave}
               className="w-full py-3 text-[10px] font-black uppercase tracking-[0.25em] text-red-500"
             >
-              退出会话
+              {t("chat.bt.btn.leave")}
             </button>
           </div>
         </div>
@@ -909,7 +907,9 @@ export function Chat() {
                   : "bg-black/5 text-black/40"
               }`}
             >
-              {terminatedBanner.reason === "error" ? "Connection Failed" : "Session Closed"}
+              {terminatedBanner.reason === "error"
+                ? t("chat.terminated.subtitle.error")
+                : t("chat.terminated.subtitle.closed")}
             </div>
             <div className="text-2xl font-black text-black mb-2">
               {terminatedBanner.reason === "safe_word"
@@ -928,8 +928,8 @@ export function Chat() {
             )}
             <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
               {terminatedBanner.reason === "error"
-                ? "稍后重试,或检查上一个会话是否还在占用"
-                : "2 秒后返回登入页…"}
+                ? t("chat.terminated.error.hint")
+                : t("chat.terminated.return.hint")}
             </div>
           </div>
         </div>
@@ -976,6 +976,7 @@ interface WaitingPanelProps {
  */
 function WaitingPanel({ code, isCreator }: WaitingPanelProps) {
   const [waitedTooLong, setWaitedTooLong] = useState(false);
+  const t = useT();
   useEffect(() => {
     const id = window.setTimeout(() => setWaitedTooLong(true), 30_000);
     return () => window.clearTimeout(id);
@@ -985,7 +986,7 @@ function WaitingPanel({ code, isCreator }: WaitingPanelProps) {
     return (
       <div className="flex flex-col items-center gap-4 py-12">
         <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/30">
-          Share Room Code
+          {t("chat.waiting.share.label")}
         </div>
         <div
           className="font-black text-4xl tracking-[0.25em]"
@@ -994,7 +995,7 @@ function WaitingPanel({ code, isCreator }: WaitingPanelProps) {
           {code}
         </div>
         <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
-          把这个 code 发给对方
+          {t("chat.waiting.share.hint")}
         </div>
       </div>
     );
@@ -1002,7 +1003,7 @@ function WaitingPanel({ code, isCreator }: WaitingPanelProps) {
   return (
     <div className="flex flex-col items-center gap-3 py-12">
       <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/30">
-        Joining Room
+        {t("chat.waiting.joining.label")}
       </div>
       <div className="font-black text-3xl tracking-[0.25em] text-black/60">
         {code}
@@ -1010,15 +1011,15 @@ function WaitingPanel({ code, isCreator }: WaitingPanelProps) {
       <div className="flex items-center gap-2 mt-1">
         <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
         <span className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
-          等待对方上线…
+          {t("chat.waiting.joining.peer")}
         </span>
       </div>
       <div className="text-[11px] text-black/40 mt-2 px-6 text-center max-w-xs leading-relaxed">
-        对方可能还在配对硬件,稍候。
+        {t("chat.waiting.joining.hint")}
       </div>
       {waitedTooLong && (
         <div className="mt-4 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-2xl text-[11px] text-yellow-700 font-semibold max-w-xs text-center leading-relaxed">
-          已等待 30 秒,对方还没上线。请确认 code 输入正确,或联系对方重新创建。
+          {t("chat.waiting.joining.timeout")}
         </div>
       )}
     </div>
@@ -1036,6 +1037,7 @@ interface PeerOfflineBannerProps {
  */
 function PeerOfflineBanner({ expiresAt }: PeerOfflineBannerProps) {
   const [now, setNow] = useState(Date.now());
+  const t = useT();
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 500);
     return () => window.clearInterval(id);
@@ -1051,7 +1053,7 @@ function PeerOfflineBanner({ expiresAt }: PeerOfflineBannerProps) {
       <div className="flex items-center gap-2">
         <span className="inline-block w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-yellow-700">
-          对方掉线
+          {t("chat.peer.offline")}
         </span>
       </div>
       <span className="text-[10px] font-black tracking-[0.2em] text-yellow-700">
@@ -1073,6 +1075,7 @@ interface SafetyBannerProps {
  * for it. Lives at the top of both mobile and desktop layouts.
  */
 function SafetyBanner({ safeWord, className = "" }: SafetyBannerProps) {
+  const t = useT();
   return (
     <div
       className={`inline-flex items-center gap-2.5 bg-white/80 backdrop-blur-xl rounded-full pl-3 pr-5 py-2 shadow-[0_8px_24px_rgba(255,138,61,0.18)] border-2 ${className}`}
@@ -1089,7 +1092,7 @@ function SafetyBanner({ safeWord, className = "" }: SafetyBannerProps) {
           className="text-[9px] font-black uppercase tracking-[0.25em]"
           style={{ color: BRAND }}
         >
-          Safety · 安全词
+          {t("chat.safetybanner.label")}
         </span>
         <span className="font-black text-black text-sm sm:text-base mt-0.5 truncate max-w-[40vw]">
           {safeWord || "—"}
@@ -1124,6 +1127,7 @@ function RingingOverlay({
   onReject,
   labels,
 }: RingingOverlayProps) {
+  const t = useT();
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -1148,7 +1152,9 @@ function RingingOverlay({
           <Phone size={32} className="text-white" strokeWidth={2.5} />
         </motion.div>
         <div className="text-[10px] font-black uppercase tracking-[0.25em] text-black/40 mb-2">
-          {direction === "outgoing" ? "Outgoing Call" : "Incoming Call"}
+          {direction === "outgoing"
+            ? t("chat.ringing.outgoing.subtitle")
+            : t("chat.ringing.incoming.subtitle")}
         </div>
         <div className="text-2xl font-black text-black mb-8">
           {labels.title}
@@ -1208,6 +1214,7 @@ function CallBar({
   elapsed,
   className = "",
 }: CallBarProps) {
+  const t = useT();
   const mm = Math.floor(elapsed / 60).toString().padStart(2, "0");
   const ss = (elapsed % 60).toString().padStart(2, "0");
   return (
@@ -1223,7 +1230,7 @@ function CallBar({
           }`}
         />
         <span className="text-[10px] font-black uppercase tracking-[0.25em] text-black/60">
-          {muted ? "Muted" : recording ? "Listening" : "Live"}
+          {muted ? t("chat.callbar.muted") : recording ? t("chat.callbar.listening") : t("chat.callbar.live")}
         </span>
         <span className="text-xs font-bold tabular-nums text-black/70 ml-1">
           {mm}:{ss}
