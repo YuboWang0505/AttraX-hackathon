@@ -741,11 +741,11 @@ export function Chat() {
                 !safeWord || connection !== "ready" || btInterrupted
               }
               className="w-full py-3 sm:py-4 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-black tracking-wide shadow-[0_10px_30px_rgba(239,68,68,0.4)] active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-              aria-label="发送安全词终止会话"
+              aria-label={t("chat.safeword.btn.aria")}
             >
               <Shield size={20} strokeWidth={2.5} />
               <span className="text-sm sm:text-base">
-                安全词:{safeWord || "—"}
+                {t("chat.safeword.btn.prefix")}{safeWord || "—"}
               </span>
             </button>
           </div>
