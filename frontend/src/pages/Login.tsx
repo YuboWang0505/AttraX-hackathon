@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Users } from "lucide-react";
 import { useState } from "react";
 import type { Role } from "@attrax/shared";
+import { useT } from "../i18n/index.js";
 import { backendUrl } from "../lib/config.js";
 import { useStore } from "../store.js";
 
@@ -16,6 +17,7 @@ export function Login() {
   const [safeWord, setSafeWord] = useState("");
   const [error, setError] = useState<string | null>(null);
   const store = useStore();
+  const t = useT();
 
   // Create-mode requires a safe word: it's the only opportunity to set it,
   // and the partner who joins later will inherit whatever this user picks.
@@ -34,7 +36,7 @@ export function Login() {
     setError(null);
     if (mode === "create") {
       if (!safeWord.trim()) {
-        setError("创建房间必须设置安全词");
+        setError(t("login.err.safeword.required"));
         return;
       }
       try {
@@ -54,13 +56,13 @@ export function Login() {
         store.setIsCreator(true);
         store.setPage(role === "m" ? "bt_gate" : "chat");
       } catch {
-        setError("创建房间失败,请检查后端是否运行");
+        setError(t("login.err.create.failed"));
       }
       return;
     }
     // join
     if (!/^\d{6}$/.test(roomCode)) {
-      setError("请输入对方告知的 6 位 code");
+      setError(t("login.err.code.invalid"));
       return;
     }
     store.setRole(role);
@@ -90,10 +92,10 @@ export function Login() {
             className="text-2xl sm:text-3xl font-black tracking-tighter mb-3 sm:mb-4 whitespace-nowrap"
             style={{ color: BRAND }}
           >
-            Synesthesia Lab
+            {t("login.brand")}
           </motion.h1>
           <div className="inline-flex px-4 py-2 rounded-full bg-black/5 text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
-            Remote interaction
+            {t("login.subtitle")}
           </div>
         </div>
 
@@ -110,7 +112,7 @@ export function Login() {
                     : "text-black/40 hover:text-black/60"
                 }`}
               >
-                {m === "create" ? "Create · 创建" : "Join · 加入"}
+                {m === "create" ? t("login.tab.create") : t("login.tab.join")}
               </button>
             ))}
           </div>
@@ -119,7 +121,7 @@ export function Login() {
         {/* Role Selection */}
         <div className="mb-6 sm:mb-8">
           <label className="block text-[10px] font-black text-black/20 uppercase tracking-[0.2em] mb-3 sm:mb-4 ml-4">
-            Identity Profile
+            {t("login.identity")}
           </label>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <button
@@ -138,9 +140,9 @@ export function Login() {
                 S
               </div>
               <div className="text-[10px] text-black/40 font-black leading-tight tracking-wider">
-                DOMINANT
+                {t("login.role.s.desc1")}
                 <br />
-                CONTROLLER
+                {t("login.role.s.desc2")}
               </div>
               {role === "s" && (
                 <div
@@ -165,9 +167,9 @@ export function Login() {
                 M
               </div>
               <div className="text-[10px] text-black/40 font-black leading-tight tracking-wider">
-                SUBMISSIVE
+                {t("login.role.m.desc1")}
                 <br />
-                DEVICE SYNC
+                {t("login.role.m.desc2")}
               </div>
               {role === "m" && (
                 <div
@@ -193,26 +195,26 @@ export function Login() {
               >
                 <div className="flex justify-between items-center mb-2 px-4">
                   <label className="text-[9px] font-black text-black/20 uppercase tracking-[0.2em]">
-                    Safety Constraint · 安全词
+                    {t("login.safeword.label")}
                   </label>
                   <span
                     className="text-[9px] font-black uppercase tracking-wider"
                     style={{ color: BRAND }}
                   >
-                    Required
+                    {t("login.safeword.required")}
                   </span>
                 </div>
                 <input
                   type="text"
                   maxLength={16}
-                  placeholder="必须设置安全词"
+                  placeholder={t("login.safeword.placeholder")}
                   value={safeWord}
                   onChange={(e) => setSafeWord(e.target.value)}
                   className="w-full bg-white/50 hover:bg-white border border-white/80 rounded-full p-5 sm:p-6 text-base font-bold focus:outline-none focus:ring-8 shadow-sm transition-all text-black placeholder:text-black/20 text-center"
                   style={{ ["--tw-ring-color" as never]: "rgba(255,138,61,0.05)" }}
                 />
                 <p className="text-[10px] text-black/30 mt-2 px-4 leading-relaxed">
-                  双方任一方说出安全词即立刻终止会话。房间号将由系统自动生成。
+                  {t("login.safeword.hint")}
                 </p>
               </motion.div>
             ) : (
@@ -226,13 +228,13 @@ export function Login() {
               >
                 <div className="flex justify-between items-center mb-2 px-4">
                   <label className="text-[9px] font-black text-black/20 uppercase tracking-[0.2em]">
-                    Room Code · 房间号
+                    {t("login.code.label")}
                   </label>
                   <span
                     className="text-[9px] font-black uppercase tracking-wider"
                     style={{ color: BRAND }}
                   >
-                    6 digits
+                    {t("login.code.digits")}
                   </span>
                 </div>
                 <input
@@ -240,7 +242,7 @@ export function Login() {
                   pattern="[0-9]*"
                   maxLength={6}
                   type="text"
-                  placeholder="000 000"
+                  placeholder={t("login.code.placeholder")}
                   value={roomCode}
                   onChange={(e) =>
                     setRoomCode(e.target.value.replace(/\D/g, "").slice(0, 6))
@@ -249,7 +251,7 @@ export function Login() {
                   style={{ ["--tw-ring-color" as never]: "rgba(255,138,61,0.05)" }}
                 />
                 <p className="text-[10px] text-black/30 mt-2 px-4 leading-relaxed">
-                  使用对方告知的 6 位房间号。安全词由创建方设置,你将自动继承。
+                  {t("login.code.hint")}
                 </p>
               </motion.div>
             )}
@@ -271,7 +273,7 @@ export function Login() {
         >
           <Users size={22} className="sm:hidden" />
           <Users size={24} className="hidden sm:block" />
-          {mode === "create" ? "CREATE SESSION" : "JOIN SESSION"}
+          {mode === "create" ? t("login.btn.create") : t("login.btn.join")}
         </motion.button>
       </motion.div>
     </main>

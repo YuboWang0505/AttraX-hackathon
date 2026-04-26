@@ -1,4 +1,5 @@
 import { SynthHero } from "../components/SynthHero.js";
+import { useT } from "../i18n/index.js";
 import { useStore } from "../store.js";
 
 /**
@@ -9,9 +10,15 @@ import { useStore } from "../store.js";
  * bypasses Tailwind JIT/HMR issues that bit us on Win Chrome.
  *  - <500px: single-column stack (hero on top, CTA below)
  *  - ≥500px: left/right split
+ *
+ * Top-right corner has a 中/EN language toggle. Choice persists to
+ * localStorage so subsequent loads land in the same language.
  */
 export function Landing() {
   const setPage = useStore((s) => s.setPage);
+  const language = useStore((s) => s.language);
+  const setLanguage = useStore((s) => s.setLanguage);
+  const t = useT();
 
   return (
     <div className="relative h-full w-full overflow-y-auto">
@@ -19,39 +26,57 @@ export function Landing() {
       <div className="mesh-bg" />
       <div className="mesh-glow" />
 
+      {/* Language toggle — top-right pill */}
+      <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20 flex items-center gap-1 p-1 rounded-full bg-white/60 backdrop-blur-xl border border-white/80 shadow-sm">
+        {(["zh", "en"] as const).map((l) => (
+          <button
+            key={l}
+            onClick={() => setLanguage(l)}
+            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition ${
+              language === l
+                ? "bg-black text-white"
+                : "text-black/40 hover:text-black/70"
+            }`}
+            aria-label={`Switch to ${l === "zh" ? "Chinese" : "English"}`}
+          >
+            {l === "zh" ? t("landing.lang.zh") : t("landing.lang.en")}
+          </button>
+        ))}
+      </div>
+
       <div className="relative z-10 landing-row">
         <div className="landing-hero">
           <SynthHero echoes={0} />
           <p className="mt-4 lg:mt-8 text-ink-900 text-base lg:text-xl xl:text-2xl font-medium leading-relaxed max-w-md lg:max-w-lg">
-            让每次渴望都完美
+            {t("landing.tagline.zh")}
           </p>
           <p className="mt-1.5 lg:mt-2 text-ink-700 text-xs lg:text-base max-w-md tracking-wide">
-            Let every desire be perfect
+            {t("landing.tagline.en")}
           </p>
         </div>
 
         <div className="landing-cta">
           <div className="flex flex-wrap items-stretch justify-center gap-2 lg:gap-3">
             <div className="feature-badge">
-              <div className="title">AI调控</div>
-              <div className="desc">体验同频</div>
+              <div className="title">{t("landing.feature.ai.title")}</div>
+              <div className="desc">{t("landing.feature.ai.desc")}</div>
             </div>
             <div className="feature-badge">
-              <div className="title">玩后即焚</div>
-              <div className="desc">隐私保护</div>
+              <div className="title">{t("landing.feature.burn.title")}</div>
+              <div className="desc">{t("landing.feature.burn.desc")}</div>
             </div>
             <div className="feature-badge">
-              <div className="title">安全词</div>
-              <div className="desc">一声终止</div>
+              <div className="title">{t("landing.feature.safeword.title")}</div>
+              <div className="desc">{t("landing.feature.safeword.desc")}</div>
             </div>
           </div>
 
           <button
             onClick={() => setPage("login")}
             className="btn-start"
-            aria-label="进入"
+            aria-label="Enter"
           >
-            <span>START</span>
+            <span>{t("landing.start")}</span>
             <span className="arrow" aria-hidden>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
                 <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -60,7 +85,7 @@ export function Landing() {
           </button>
 
           <p className="text-xs lg:text-sm text-ink-700 text-center max-w-[320px]">
-            美好的体验以彼此自愿、相互尊重为前提
+            {t("landing.disclaimer")}
           </p>
         </div>
       </div>

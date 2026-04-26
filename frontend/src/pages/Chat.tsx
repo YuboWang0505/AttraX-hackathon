@@ -5,6 +5,8 @@ import type { ClientMsg, ServerMsg } from "@attrax/shared";
 import { BluetoothStatus } from "../components/BluetoothStatus.js";
 import { ChatBubble } from "../components/ChatBubble.js";
 import { IntensityViz } from "../components/IntensityViz.js";
+import { useT } from "../i18n/index.js";
+import type { Lang } from "../i18n/strings.js";
 import * as bt from "../lib/bluetooth.js";
 import type { BtStatus } from "../lib/bluetooth.js";
 import {
@@ -25,25 +27,49 @@ import { useStore } from "../store.js";
 // table for the labeled intensity level (verified via keyword-table.ts).
 // Keeps demo timing tight (<10ms response) and removes network dependency
 // for the canonical S_WARM_UP / S_COMMAND_POSTURE / S_REWARD_HIGH cases.
-const QUICK_SHORTCUTS: { label: string; text: string }[] = [
-  { label: "1档", text: "乖,放松" },
-  { label: "2档", text: "给我跪好" },
-  { label: "3档", text: "表现得太棒了,这是给你的最高奖励。" },
-];
+//
+// Bilingual: Chinese variants land on Chinese keywords; English variants
+// land on the English keyword extensions added to the same table.
+function getQuickShortcuts(lang: Lang): { label: string; text: string }[] {
+  if (lang === "en") {
+    return [
+      { label: "L1", text: "good girl, relax" },
+      { label: "L2", text: "kneel for me" },
+      { label: "L3", text: "you've been amazing, this is your highest reward" },
+    ];
+  }
+  return [
+    { label: "1档", text: "乖,放松" },
+    { label: "2档", text: "给我跪好" },
+    { label: "3档", text: "表现得太棒了,这是给你的最高奖励。" },
+  ];
+}
 
 const BRAND = "#FF8A3D";
 
 // Dice faces — uniform distribution across 1/2/3, two per level. Each
 // face's text deterministically hits the keyword table so the outcome
 // is shown instantly after animation ends.
-const DICE_FACES: { label: string; text: string; intensity: 1 | 2 | 3 }[] = [
-  { label: "⚀", text: "乖,放松", intensity: 1 },
-  { label: "⚁", text: "抱抱,辛苦了", intensity: 1 },
-  { label: "⚂", text: "给我跪好", intensity: 2 },
-  { label: "⚃", text: "求我", intensity: 2 },
-  { label: "⚄", text: "给我丢", intensity: 3 },
-  { label: "⚅", text: "狠狠惩罚", intensity: 3 },
-];
+function getDiceFaces(lang: Lang): { label: string; text: string; intensity: 1 | 2 | 3 }[] {
+  if (lang === "en") {
+    return [
+      { label: "⚀", text: "good girl, relax", intensity: 1 },
+      { label: "⚁", text: "hug, well done", intensity: 1 },
+      { label: "⚂", text: "kneel for me", intensity: 2 },
+      { label: "⚃", text: "beg me", intensity: 2 },
+      { label: "⚄", text: "cum for me", intensity: 3 },
+      { label: "⚅", text: "punish hard", intensity: 3 },
+    ];
+  }
+  return [
+    { label: "⚀", text: "乖,放松", intensity: 1 },
+    { label: "⚁", text: "抱抱,辛苦了", intensity: 1 },
+    { label: "⚂", text: "给我跪好", intensity: 2 },
+    { label: "⚃", text: "求我", intensity: 2 },
+    { label: "⚄", text: "给我丢", intensity: 3 },
+    { label: "⚅", text: "狠狠惩罚", intensity: 3 },
+  ];
+}
 
 const DICE_ANIM_MS = 1500;
 const DICE_CYCLE_MS = 110;
@@ -69,6 +95,10 @@ export function Chat() {
     setSafeWord,
     terminate,
   } = useStore();
+  const language = useStore((s) => s.language);
+  const t = useT();
+  const QUICK_SHORTCUTS = useMemo(() => getQuickShortcuts(language), [language]);
+  const DICE_FACES = useMemo(() => getDiceFaces(language), [language]);
 
   const [input, setInput] = useState("");
   const [terminatedBanner, setTerminatedBanner] = useState<{
@@ -582,7 +612,7 @@ export function Chat() {
               disabled={connection !== "ready"}
               className="w-9 h-9 rounded-full text-white flex items-center justify-center shadow-[0_8px_20px_rgba(255,138,61,0.35)] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ backgroundColor: BRAND }}
-              aria-label="开始通话"
+              aria-label={t("chat.call.start")}
             >
               <Phone size={15} strokeWidth={2.5} />
             </button>
@@ -591,7 +621,7 @@ export function Chat() {
             onClick={handleLeave}
             className="text-[9px] font-black uppercase tracking-[0.2em] text-red-500 px-3 py-1.5 rounded-full bg-white/60 border border-red-200 active:bg-red-50"
           >
-            退出
+            {t("chat.exit")}
           </button>
         </div>
       </div>
@@ -643,7 +673,7 @@ export function Chat() {
                 disabled={connection !== "ready"}
                 className="text-[10px] font-black uppercase tracking-[0.2em] text-white px-4 py-2 rounded-full hover:opacity-90 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
                 style={{ backgroundColor: BRAND }}
-                aria-label="开始通话"
+                aria-label={t("chat.call.start")}
               >
                 <Phone size={13} strokeWidth={2.5} />
                 Call
@@ -678,7 +708,7 @@ export function Chat() {
           )}
           {messages.length === 0 && connection === "ready" && (
             <div className="text-center text-[10px] font-black uppercase tracking-[0.25em] text-black/40 py-12">
-              开始聊天吧 · S 的消息会驱动档位变化
+              {t("chat.empty.start")}
             </div>
           )}
           {messages.map((m) => (
@@ -762,10 +792,10 @@ export function Chat() {
             disabled={connection !== "ready" || btInterrupted}
             placeholder={
               btInterrupted
-                ? "硬件已断开,请重连"
+                ? language === "en" ? "Device disconnected. Reconnect to send." : "硬件已断开,请重连"
                 : connection === "ready"
-                ? "输入消息…"
-                : "等待连接…"
+                ? t("chat.input.placeholder")
+                : language === "en" ? "Connecting..." : "等待连接…"
             }
             className="flex-1 min-w-0 bg-black text-white placeholder:text-white/30 rounded-full px-5 sm:px-6 py-4 sm:py-5 text-sm font-bold focus:outline-none focus:ring-8 focus:ring-[#FF8A3D]/10 shadow-[0_15px_40px_rgba(0,0,0,0.15)] disabled:opacity-40"
             maxLength={200}
@@ -787,7 +817,11 @@ export function Chat() {
         <IntensityViz intensity={intensity} />
       </div>
 
-      <DiceOverlay state={rolling} />
+      <DiceOverlay
+        state={rolling}
+        faces={DICE_FACES}
+        intensitySuffix={language === "en" ? "" : " 档"}
+      />
 
       {/* Hidden remote-audio sink — webrtc.ts attaches the peer's MediaStream
           here once the call is connected. autoPlay + playsInline so iOS
@@ -801,6 +835,15 @@ export function Chat() {
             onCancel={cancelOutgoingCall}
             onAccept={acceptIncomingCall}
             onReject={rejectIncomingCall}
+            labels={{
+              title:
+                callState === "calling"
+                  ? t("chat.ringing.outgoing")
+                  : t("chat.ringing.incoming"),
+              cancel: t("chat.ringing.cancel"),
+              accept: t("chat.ringing.accept"),
+              reject: t("chat.ringing.reject"),
+            }}
           />
         )}
       </AnimatePresence>
@@ -862,10 +905,10 @@ export function Chat() {
             </div>
             <div className="text-2xl font-black text-black mb-2">
               {terminatedBanner.reason === "safe_word"
-                ? "会话已安全终止"
+                ? t("chat.terminated.safeword")
                 : terminatedBanner.reason === "peer_left"
-                ? "对方已离开"
-                : "连接失败"}
+                ? t("chat.terminated.peer")
+                : t("chat.terminated.error")}
             </div>
             {terminatedBanner.reason === "error" && (
               <div className="font-mono text-xs text-black/60 mb-3 bg-black/5 rounded-lg px-3 py-2">
@@ -1053,6 +1096,12 @@ interface RingingOverlayProps {
   onCancel?: () => void;
   onAccept?: () => void;
   onReject?: () => void;
+  labels: {
+    title: string;
+    cancel: string;
+    accept: string;
+    reject: string;
+  };
 }
 
 /**
@@ -1065,6 +1114,7 @@ function RingingOverlay({
   onCancel,
   onAccept,
   onReject,
+  labels,
 }: RingingOverlayProps) {
   return (
     <motion.div
@@ -1093,7 +1143,7 @@ function RingingOverlay({
           {direction === "outgoing" ? "Outgoing Call" : "Incoming Call"}
         </div>
         <div className="text-2xl font-black text-black mb-8">
-          {direction === "outgoing" ? "正在呼叫…" : "对方呼叫"}
+          {labels.title}
         </div>
         {direction === "outgoing" ? (
           <button
@@ -1101,7 +1151,7 @@ function RingingOverlay({
             className="w-full h-14 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-black text-sm tracking-wide shadow-[0_15px_40px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2"
           >
             <PhoneOff size={18} strokeWidth={2.5} />
-            取消
+            {labels.cancel}
           </button>
         ) : (
           <div className="grid grid-cols-2 gap-3">
@@ -1110,14 +1160,14 @@ function RingingOverlay({
               className="h-14 rounded-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white font-black text-sm shadow-[0_10px_30px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2"
             >
               <PhoneOff size={18} strokeWidth={2.5} />
-              拒绝
+              {labels.reject}
             </button>
             <button
               onClick={onAccept}
               className="h-14 rounded-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-black text-sm shadow-[0_10px_30px_rgba(34,197,94,0.4)] flex items-center justify-center gap-2"
             >
               <Phone size={18} strokeWidth={2.5} />
-              接听
+              {labels.accept}
             </button>
           </div>
         )}
@@ -1201,6 +1251,8 @@ function CallBar({
 
 interface DiceOverlayProps {
   state: { active: boolean; outcomeIdx: number | null };
+  faces: { label: string; text: string; intensity: 1 | 2 | 3 }[];
+  intensitySuffix: string;
 }
 
 /**
@@ -1209,7 +1261,7 @@ interface DiceOverlayProps {
  * the same cycling animation with no fixed outcome (the reveal comes in
  * via the normal chat-message path that follows).
  */
-function DiceOverlay({ state }: DiceOverlayProps) {
+function DiceOverlay({ state, faces, intensitySuffix }: DiceOverlayProps) {
   const [cycleIdx, setCycleIdx] = useState(0);
 
   useEffect(() => {
@@ -1217,16 +1269,16 @@ function DiceOverlay({ state }: DiceOverlayProps) {
     setCycleIdx(0);
     let i = 0;
     const id = window.setInterval(() => {
-      i = (i + 1) % DICE_FACES.length;
+      i = (i + 1) % faces.length;
       setCycleIdx(i);
     }, DICE_CYCLE_MS);
     return () => window.clearInterval(id);
-  }, [state.active]);
+  }, [state.active, faces.length]);
 
   // Settle phase — last 300ms show the final face (roller only).
   const showOutcome = state.outcomeIdx !== null;
   const displayIdx = showOutcome ? state.outcomeIdx! : cycleIdx;
-  const face = DICE_FACES[displayIdx];
+  const face = faces[displayIdx];
 
   return (
     <AnimatePresence>
@@ -1251,7 +1303,7 @@ function DiceOverlay({ state }: DiceOverlayProps) {
               {face.text}
             </div>
             <div className="text-xs text-accent-500 font-semibold">
-              {face.intensity} 档
+              {face.intensity}{intensitySuffix}
             </div>
           </motion.div>
         </motion.div>

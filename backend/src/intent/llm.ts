@@ -22,6 +22,8 @@ const FALLBACK: Omit<LlmResult, "source"> = {
 function buildSystemPrompt(): string {
   return `You read the dominant partner (S)'s chat message and decide whether it is a DIRECTIVE to change a remote vibrator's intensity level. Most chat messages are NOT directives — they are acknowledgements, questions, pacing cues, or casual conversation. Only return an intensity value when the message clearly wants to change the current level.
 
+Input may be Chinese or English. Apply the same rules to both languages.
+
 Output:
 - 0 = STOP (safe word — rarely needed, handled elsewhere)
 - 1 = LIGHT — clearly softening, aftercare, or calming down ("乖,放松", "抱抱,辛苦了", "别紧张", "过来让我揉揉")
@@ -42,7 +44,7 @@ Note: a question can still be a directive when it's teasing pressure, not a real
 
 When in doubt, return null. Do NOT default to 1.
 
-Respond with JSON only: {"intensity": 0|1|2|3|null, "reason": "short phrase, ≤ 12 Chinese chars"}`;
+Respond with JSON only: {"intensity": 0|1|2|3|null, "reason": "short phrase, ≤ 12 Chinese chars or 6 English words"}`;
 }
 
 export async function classify(text: string): Promise<LlmResult> {

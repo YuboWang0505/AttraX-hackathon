@@ -1,5 +1,7 @@
 import type { Intensity, Role } from "@attrax/shared";
 import { create } from "zustand";
+import { detectInitialLang, persistLang } from "./i18n/index.js";
+import type { Lang } from "./i18n/strings.js";
 
 export type Page = "landing" | "login" | "bt_gate" | "chat" | "terminated";
 
@@ -31,6 +33,7 @@ export type CallState = "idle" | "calling" | "ringing" | "in_call";
 
 interface AppState {
   page: Page;
+  language: Lang;
   role: Role | null;
   code: string;
   safeWord: string;
@@ -45,6 +48,7 @@ interface AppState {
   lastAppliedSeqId: number;
 
   setPage: (p: Page) => void;
+  setLanguage: (l: Lang) => void;
   setRole: (r: Role) => void;
   setCode: (c: string) => void;
   setSafeWord: (w: string) => void;
@@ -63,6 +67,7 @@ export const useStore = create<AppState>((set) => ({
   // (not "landing") so a user who just terminated a session doesn't have to
   // re-watch the hero before re-entering.
   page: "landing",
+  language: detectInitialLang(),
   role: null,
   code: "",
   safeWord: "",
@@ -75,6 +80,10 @@ export const useStore = create<AppState>((set) => ({
   lastAppliedSeqId: 0,
 
   setPage: (page) => set({ page }),
+  setLanguage: (language) => {
+    persistLang(language);
+    set({ language });
+  },
   setRole: (role) => set({ role }),
   setCode: (code) => set({ code }),
   setSafeWord: (safeWord) => set({ safeWord }),

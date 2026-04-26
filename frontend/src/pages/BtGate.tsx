@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Bluetooth } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useT } from "../i18n/index.js";
 import * as bt from "../lib/bluetooth.js";
 import type { BtStatus } from "../lib/bluetooth.js";
 import { useStore } from "../store.js";
@@ -10,6 +11,7 @@ const BRAND = "#FF8A3D";
 export function BtGate() {
   const { code, safeWord, setPage, setDemoMode, resetSession } = useStore();
   const [status, setStatus] = useState<BtStatus>(bt.getStatus());
+  const t = useT();
 
   useEffect(() => bt.subscribe(setStatus), []);
 
@@ -62,7 +64,7 @@ export function BtGate() {
             {code}
           </div>
           <div className="text-[10px] font-black text-black/30 uppercase tracking-[0.25em]">
-            把 code 发给对方加入房间
+            {t("bt.tip3")}
           </div>
           {safeWord && (
             <div className="mt-4 sm:mt-5 inline-flex items-center gap-2 bg-white/60 border border-white/80 px-4 py-2 rounded-full shadow-sm">
@@ -155,14 +157,14 @@ export function BtGate() {
             onClick={handleBack}
             className="text-black/40 hover:text-black transition"
           >
-            ← 返回登入
+            ← {t("bt.back")}
           </button>
           <button
             onClick={handleDemoSkip}
             className="hover:opacity-80 transition"
             style={{ color: BRAND }}
           >
-            切到演示模式
+            {t("bt.demo.skip")}
           </button>
         </div>
       </motion.div>
