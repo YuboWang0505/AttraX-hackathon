@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react";
+import { useT } from "../i18n/index.js";
+import type { StringKey } from "../i18n/strings.js";
 import { getStatus, subscribe, type BtStatus } from "../lib/bluetooth.js";
 
-const SELF_LABEL: Record<BtStatus, string> = {
-  idle: "未连接",
-  connecting: "连接中…",
-  connected: "已连硬件",
-  offline: "脱机模式",
-  error: "连接失败",
+const SELF_LABEL: Record<BtStatus, StringKey> = {
+  idle: "chat.btself.idle",
+  connecting: "chat.btself.connecting",
+  connected: "chat.btself.connected",
+  offline: "chat.btself.offline",
+  error: "chat.btself.error",
 };
 
-const PEER_LABEL: Record<BtStatus, string> = {
-  idle: "对方未就绪",
-  connecting: "对方连接中…",
-  connected: "对方硬件就绪",
-  offline: "对方演示模式",
-  error: "对方连接异常",
+const PEER_LABEL: Record<BtStatus, StringKey> = {
+  idle: "chat.btpeer.idle",
+  connecting: "chat.btpeer.connecting",
+  connected: "chat.btpeer.connected",
+  offline: "chat.btpeer.offline",
+  error: "chat.btpeer.error",
 };
 
 const COLOR: Record<BtStatus, string> = {
@@ -34,6 +36,7 @@ interface Props {
 
 export function BluetoothStatus({ status: override, peer = false }: Props) {
   const [localStatus, setLocalStatus] = useState<BtStatus>(getStatus());
+  const t = useT();
   useEffect(() => {
     if (override !== undefined) return;
     return subscribe(setLocalStatus);
@@ -43,17 +46,17 @@ export function BluetoothStatus({ status: override, peer = false }: Props) {
     return (
       <div className="inline-flex items-center gap-2 rounded-btn bg-attrax-panel/70 px-2 py-1 text-xs border border-white/5">
         <span className="inline-block w-2 h-2 rounded-full bg-attrax-muted" />
-        <span className="text-attrax-muted">等待对方硬件</span>
+        <span className="text-attrax-muted">{t("chat.btpeer.waiting")}</span>
       </div>
     );
   }
 
   const status = (override ?? localStatus) as BtStatus;
-  const label = peer ? PEER_LABEL[status] : SELF_LABEL[status];
+  const labelKey = peer ? PEER_LABEL[status] : SELF_LABEL[status];
   return (
     <div className="inline-flex items-center gap-2 rounded-btn bg-attrax-panel/70 px-2 py-1 text-xs border border-white/5">
       <span className={`inline-block w-2 h-2 rounded-full ${COLOR[status]}`} />
-      <span className="text-attrax-muted">{label}</span>
+      <span className="text-attrax-muted">{t(labelKey)}</span>
     </div>
   );
 }
