@@ -1,16 +1,18 @@
 import { motion } from "framer-motion";
 import type { Intensity } from "@attrax/shared";
+import { useT } from "../i18n/index.js";
+import type { StringKey } from "../i18n/strings.js";
 
 interface Props {
   intensity: Intensity;
   compact?: boolean;
 }
 
-const LABELS: Record<Intensity, string> = {
-  0: "静止",
-  1: "轻",
-  2: "中",
-  3: "强",
+const LABEL_KEYS: Record<Intensity, StringKey> = {
+  0: "chat.intensity.0",
+  1: "chat.intensity.1",
+  2: "chat.intensity.2",
+  3: "chat.intensity.3",
 };
 
 // Breathing period per PRD §4.2
@@ -22,6 +24,7 @@ const DURATIONS: Record<Intensity, number> = {
 };
 
 export function IntensityViz({ intensity, compact = false }: Props) {
+  const t = useT();
   const duration = DURATIONS[intensity];
   const active = intensity > 0;
 
@@ -77,9 +80,9 @@ export function IntensityViz({ intensity, compact = false }: Props) {
       <div
         className={`flex items-center gap-2 text-ink-500 ${compact ? "text-xs" : "text-sm"}`}
       >
-        <span>档位</span>
+        <span>{t("chat.intensity.label")}</span>
         <span className="font-mono text-ink-900">
-          {intensity} / 3 · {LABELS[intensity]}
+          {intensity} / 3 · {t(LABEL_KEYS[intensity])}
         </span>
       </div>
     </div>

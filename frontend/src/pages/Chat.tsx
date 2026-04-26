@@ -691,7 +691,7 @@ export function Chat() {
               onClick={handleLeave}
               className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500 px-4 py-2 rounded-full bg-white/60 border border-red-200 hover:bg-red-50"
             >
-              退出
+              {t("chat.exit")}
             </button>
           </div>
         </div>
@@ -758,8 +758,8 @@ export function Chat() {
               disabled={connection !== "ready" || btInterrupted || rolling.active}
               className="text-sm sm:text-base px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-white shadow-[0_8px_20px_rgba(255,138,61,0.35)] active:scale-[0.96] disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ backgroundColor: BRAND }}
-              title="随机摇一档"
-              aria-label="随机摇一档"
+              title={t("chat.dice.btn.title")}
+              aria-label={t("chat.dice.btn.title")}
             >
               🎲
             </button>
