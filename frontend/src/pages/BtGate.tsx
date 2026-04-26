@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Bluetooth } from "lucide-react";
 import { useEffect, useState } from "react";
+import { CopyCode } from "../components/CopyCode.js";
 import { useT } from "../i18n/index.js";
 import * as bt from "../lib/bluetooth.js";
 import type { BtStatus } from "../lib/bluetooth.js";
@@ -57,11 +58,14 @@ export function BtGate() {
           <div className="inline-flex px-4 py-2 rounded-full bg-black/5 text-[10px] font-black uppercase tracking-[0.25em] text-black/40 mb-4 sm:mb-6">
             Room Ready
           </div>
-          <div
-            className="font-black tracking-[0.25em] text-5xl sm:text-6xl mb-3 sm:mb-4"
-            style={{ color: BRAND }}
-          >
-            {code}
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <span
+              className="font-black tracking-[0.25em] text-5xl sm:text-6xl"
+              style={{ color: BRAND }}
+            >
+              {code}
+            </span>
+            <CopyCode code={code} size={20} />
           </div>
           <div className="text-[10px] font-black text-black/30 uppercase tracking-[0.25em]">
             {t("bt.tip3")}

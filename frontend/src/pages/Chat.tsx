@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClientMsg, ServerMsg } from "@attrax/shared";
 import { BluetoothStatus } from "../components/BluetoothStatus.js";
 import { ChatBubble } from "../components/ChatBubble.js";
+import { CopyCode } from "../components/CopyCode.js";
 import { IntensityViz } from "../components/IntensityViz.js";
 import { useT } from "../i18n/index.js";
 import type { Lang } from "../i18n/strings.js";
@@ -592,13 +593,14 @@ export function Chat() {
 
       {/* Mobile header — Room + BT + 通话 + 退出 */}
       <div className="md:hidden shrink-0 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-full px-3 py-2 shadow-sm">
+        <div className="flex items-center gap-2 bg-white/60 backdrop-blur-xl border border-white/80 rounded-full pl-3 pr-1 py-1 shadow-sm">
           <span className="text-[9px] font-black text-black/30 uppercase tracking-[0.2em]">
             Room
           </span>
           <span className="font-bold text-black text-xs tracking-[0.15em]">
             {code}
           </span>
+          <CopyCode code={code} size={12} className="ml-0.5" />
         </div>
         <div className="flex items-center gap-2">
           {role === "m" ? (
@@ -655,7 +657,10 @@ export function Chat() {
         <div className="hidden md:flex shrink-0 items-center justify-between px-6 py-4 gap-4">
           <div className="flex items-center gap-3 flex-wrap">
             <SafetyBanner safeWord={safeWord} />
-            <Pill label="Room" value={code} mono />
+            <div className="inline-flex items-center gap-1">
+              <Pill label="Room" value={code} mono />
+              <CopyCode code={code} size={14} />
+            </div>
             <Pill label="Role" value={(role || "").toUpperCase()} />
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-black/40">
               {statusText}
@@ -1263,21 +1268,40 @@ interface DiceOverlayProps {
  */
 function DiceOverlay({ state, faces, intensitySuffix }: DiceOverlayProps) {
   const [cycleIdx, setCycleIdx] = useState(0);
+  /** Settle latch — flips true in the final 300ms so the outcome face is
+   *  revealed only at the end (was previously visible the whole time). */
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
-    if (!state.active) return;
+    if (!state.active) {
+      setSettled(false);
+      return;
+    }
     setCycleIdx(0);
+    setSettled(false);
     let i = 0;
     const id = window.setInterval(() => {
       i = (i + 1) % faces.length;
       setCycleIdx(i);
     }, DICE_CYCLE_MS);
-    return () => window.clearInterval(id);
-  }, [state.active, faces.length]);
+    // Stop cycling at DICE_ANIM_MS - 300; show the chosen outcome for the
+    // remaining 300ms. Observer side (outcomeIdx === null) keeps cycling
+    // until the AnimatePresence exit kicks in.
+    const settleTimer =
+      state.outcomeIdx !== null
+        ? window.setTimeout(() => {
+            window.clearInterval(id);
+            setSettled(true);
+          }, Math.max(0, DICE_ANIM_MS - 300))
+        : null;
+    return () => {
+      window.clearInterval(id);
+      if (settleTimer !== null) window.clearTimeout(settleTimer);
+    };
+  }, [state.active, faces.length, state.outcomeIdx]);
 
-  // Settle phase — last 300ms show the final face (roller only).
-  const showOutcome = state.outcomeIdx !== null;
-  const displayIdx = showOutcome ? state.outcomeIdx! : cycleIdx;
+  const displayIdx =
+    settled && state.outcomeIdx !== null ? state.outcomeIdx : cycleIdx;
   const face = faces[displayIdx];
 
   return (
