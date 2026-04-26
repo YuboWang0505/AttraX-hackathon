@@ -48,11 +48,15 @@ export function Landing() {
         <div className="landing-hero">
           <SynthHero echoes={0} />
           <p className="mt-4 lg:mt-8 text-ink-900 text-base lg:text-xl xl:text-2xl font-medium leading-relaxed max-w-md lg:max-w-lg">
-            {t("landing.tagline.zh")}
+            {language === "zh"
+              ? "让每次渴望都完美"
+              : "Let every desire be perfect"}
           </p>
-          <p className="mt-1.5 lg:mt-2 text-ink-700 text-xs lg:text-base max-w-md tracking-wide">
-            {t("landing.tagline.en")}
-          </p>
+          {language === "zh" && (
+            <p className="mt-1.5 lg:mt-2 text-ink-700 text-xs lg:text-base max-w-md tracking-wide">
+              Let every desire be perfect
+            </p>
+          )}
         </div>
 
         <div className="landing-cta">
