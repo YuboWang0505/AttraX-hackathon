@@ -9,9 +9,10 @@ interface Props {
 }
 
 /**
- * Figma "Hi! Synesthesia Lab" hero.
- * Uses CSS clamp() in `.synth-echo` for fluid sizing (38px → 108px) — fits
- * both 402px phones and 1440px desktops without per-breakpoint props.
+ * "Hi! EchoPlay" hero — product wordmark over the team byline (rendered
+ * separately by the parent). Uses CSS clamp() in `.synth-echo` for fluid
+ * sizing (38px → 108px) so it fits 402px phones and 1440px desktops
+ * without per-breakpoint props.
  */
 export function SynthHero({
   echoes = 6,
@@ -26,9 +27,7 @@ export function SynthHero({
         </span>
       )}
       <br />
-      Synesthesia
-      <br />
-      Lab
+      EchoPlay
     </>
   );
 

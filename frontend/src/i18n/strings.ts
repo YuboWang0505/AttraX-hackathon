@@ -19,12 +19,14 @@ export const STRINGS = {
     "landing.feature.safeword.desc": "一声终止",
     "landing.start": "START",
     "landing.disclaimer": "美好的体验以彼此自愿、相互尊重为前提",
+    "landing.team.byline": "通感实验室 · SYNESTHESIA LAB",
     "landing.lang.zh": "中",
     "landing.lang.en": "EN",
 
     // Login
-    "login.brand": "Synesthesia Lab",
+    "login.brand": "EchoPlay",
     "login.subtitle": "远程互动",
+    "login.team.byline": "通感实验室 · SYNESTHESIA LAB",
     "login.tab.create": "创建",
     "login.tab.join": "加入",
     "login.identity": "身份档案",
@@ -154,12 +156,14 @@ export const STRINGS = {
     "landing.feature.safeword.desc": "Instant Stop",
     "landing.start": "START",
     "landing.disclaimer": "Built on mutual consent and mutual respect.",
+    "landing.team.byline": "SYNESTHESIA LAB",
     "landing.lang.zh": "中",
     "landing.lang.en": "EN",
 
     // Login
-    "login.brand": "Synesthesia Lab",
+    "login.brand": "EchoPlay",
     "login.subtitle": "Remote interaction",
+    "login.team.byline": "by SYNESTHESIA LAB",
     "login.tab.create": "Create",
     "login.tab.join": "Join",
     "login.identity": "Identity Profile",

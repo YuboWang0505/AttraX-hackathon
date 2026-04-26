@@ -41,6 +41,9 @@ export function Landing() {
               Let every desire be perfect
             </p>
           )}
+          <p className="mt-4 lg:mt-6 text-ink-500 text-[10px] lg:text-xs font-black uppercase tracking-[0.25em]">
+            {t("landing.team.byline")}
+          </p>
         </div>
 
         <div className="landing-cta">

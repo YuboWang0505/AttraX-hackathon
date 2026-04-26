@@ -100,6 +100,9 @@ export function Login() {
           <div className="inline-flex px-4 py-2 rounded-full bg-black/5 text-[10px] font-black uppercase tracking-[0.25em] text-black/40">
             {t("login.subtitle")}
           </div>
+          <div className="mt-3 text-[9px] font-black uppercase tracking-[0.25em] text-black/30">
+            {t("login.team.byline")}
+          </div>
         </div>
 
         {/* Mode tabs — Create vs Join */}
