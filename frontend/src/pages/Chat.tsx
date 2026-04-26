@@ -6,6 +6,7 @@ import { BluetoothStatus } from "../components/BluetoothStatus.js";
 import { ChatBubble } from "../components/ChatBubble.js";
 import { CopyCode } from "../components/CopyCode.js";
 import { IntensityViz } from "../components/IntensityViz.js";
+import { LangToggle } from "../components/LangToggle.js";
 import { useT } from "../i18n/index.js";
 import type { Lang } from "../i18n/strings.js";
 import * as bt from "../lib/bluetooth.js";
@@ -603,6 +604,7 @@ export function Chat() {
           <CopyCode code={code} size={12} className="ml-0.5" />
         </div>
         <div className="flex items-center gap-2">
+          <LangToggle compact />
           {role === "m" ? (
             <BluetoothStatus />
           ) : (
@@ -667,6 +669,7 @@ export function Chat() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <LangToggle />
             {role === "m" ? (
               <BluetoothStatus />
             ) : (

@@ -1,3 +1,4 @@
+import { LangToggle } from "../components/LangToggle.js";
 import { SynthHero } from "../components/SynthHero.js";
 import { useT } from "../i18n/index.js";
 import { useStore } from "../store.js";
@@ -17,7 +18,6 @@ import { useStore } from "../store.js";
 export function Landing() {
   const setPage = useStore((s) => s.setPage);
   const language = useStore((s) => s.language);
-  const setLanguage = useStore((s) => s.setLanguage);
   const t = useT();
 
   return (
@@ -26,23 +26,7 @@ export function Landing() {
       <div className="mesh-bg" />
       <div className="mesh-glow" />
 
-      {/* Language toggle — top-right pill */}
-      <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20 flex items-center gap-1 p-1 rounded-full bg-white/60 backdrop-blur-xl border border-white/80 shadow-sm">
-        {(["zh", "en"] as const).map((l) => (
-          <button
-            key={l}
-            onClick={() => setLanguage(l)}
-            className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.15em] transition ${
-              language === l
-                ? "bg-black text-white"
-                : "text-black/40 hover:text-black/70"
-            }`}
-            aria-label={`Switch to ${l === "zh" ? "Chinese" : "English"}`}
-          >
-            {l === "zh" ? t("landing.lang.zh") : t("landing.lang.en")}
-          </button>
-        ))}
-      </div>
+      <LangToggle className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20" />
 
       <div className="relative z-10 landing-row">
         <div className="landing-hero">

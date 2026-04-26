@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Bluetooth } from "lucide-react";
 import { useEffect, useState } from "react";
 import { CopyCode } from "../components/CopyCode.js";
+import { LangToggle } from "../components/LangToggle.js";
 import { useT } from "../i18n/index.js";
 import * as bt from "../lib/bluetooth.js";
 import type { BtStatus } from "../lib/bluetooth.js";
@@ -47,6 +48,8 @@ export function BtGate() {
     <main className="min-h-full w-full flex items-center justify-center px-4 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] relative overflow-hidden">
       <div className="mesh-bg" />
       <div className="mesh-glow" />
+
+      <LangToggle className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20" />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}

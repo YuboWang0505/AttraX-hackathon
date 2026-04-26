@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Users } from "lucide-react";
 import { useState } from "react";
 import type { Role } from "@attrax/shared";
+import { LangToggle } from "../components/LangToggle.js";
 import { useT } from "../i18n/index.js";
 import { backendUrl } from "../lib/config.js";
 import { useStore } from "../store.js";
@@ -77,6 +78,8 @@ export function Login() {
     <main className="min-h-full w-full flex items-center justify-center px-4 py-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] relative overflow-hidden">
       <div className="mesh-bg" />
       <div className="mesh-glow" />
+
+      <LangToggle className="absolute top-[max(1rem,env(safe-area-inset-top))] right-4 z-20" />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
