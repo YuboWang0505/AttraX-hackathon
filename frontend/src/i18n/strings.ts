@@ -33,7 +33,7 @@ export const STRINGS = {
     "login.role.s.desc2": "调控者",
     "login.role.m.title": "M",
     "login.role.m.desc1": "顺从方",
-    "login.role.m.desc2": "硬件同步",
+    "login.role.m.desc2": "被控者",
     "login.safeword.label": "安全词",
     "login.safeword.required": "必填",
     "login.safeword.placeholder": "必须设置安全词",
